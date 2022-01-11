@@ -22,6 +22,7 @@ import os
 import json
 import argparse
 import numpy as np
+from torch.autograd.grad_mode import inference_mode
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -67,16 +68,16 @@ def get_model(model_name, pretrained):
     if model_name == 'debug':  # Use this model for debugging
         model = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(32*32*3, pretrained)
+            nn.Linear(32*32*3, 80)
         )
     elif model_name == 'resnet50':
         model = models.resnet50(pretrained=pretrained)
+        model = torch.nn.Sequential(*(list(model.children())[:-1]))
     elif model_name =='BERT':
         model = ...
     else:
         assert False, f'Unknown network architecture \"{model_name}\"'
         
-    model = torch.nn.Sequential(*(list(model.children())[:-1]))
     return model
 
 
@@ -84,9 +85,19 @@ class FairClassifier(nn.Module):
     def __init__(self, input_model):
         super(FairClassifier, self).__init__()
         self.input_model = get_model(input_model)
-        self.featurizer = 
+        in_features = ...
+
+        self.featurizer = nn.Sequential(
+            nn.Linear(in_features, 80),
+            nn.SELU(),
+            nn.Linear(80, 1))
+        self.cla
 
     def forward(self, x):
         x = self.input_model(x)
         x = self.featurizer(x)
-        y = self.classifier(x)
+
+
+        joint_classification = self.classifier(x)
+
+        return joint_classification, group_specific_loss, group_agnostic_loss
