@@ -82,39 +82,9 @@ def get_model(model_name, num_classes=10):
     return cnn_model
 
 
-if __name__ == '__main__':
-    """
-    The given hyperparameters below should give good results for all models.
-    However, you are allowed to change the hyperparameters if you want.
-    Further, feel free to add any additional functions you might need, e.g. one for calculating the RCE and CE metrics.
-    """
-    # Command line arguments
-    parser = argparse.ArgumentParser()
-    
-    # Model hyperparameters
-    parser.add_argument('--model_name', default='debug', type=str,
-                        help='Name of the model to train.')
-    
-    # Optimizer hyperparameters
-    parser.add_argument('--lr', default=0.01, type=float,
-                        help='Learning rate to use')
-    parser.add_argument('--batch_size', default=128, type=int,
-                        help='Minibatch size')
+class FairClassifier(nn.Module):
+    def __init__(self):
+        super(FairClassifier, self).__init__()
 
-    # Other hyperparameters
-    parser.add_argument('--epochs', default=150, type=int,
-                        help='Max number of epochs')
-    parser.add_argument('--seed', default=42, type=int,
-                        help='Seed to use for reproducing results')
-    parser.add_argument('--data_dir', default='data/', type=str,
-                        help='Data directory where to store/find the CIFAR10 dataset.')
-
-    args = parser.parse_args()
-    kwargs = vars(args)
-
-    # model_names = ['vgg11', 'vgg11_bn', 'resnet18', 'resnet34', 'densenet121']
-    model_names = ['resnet18']
-    for name in model_names:
-        kwargs["model_name"] = name
-        main(**kwargs)
-        plot_results('results/' + name)
+    def forward(self, x):
+        pass
