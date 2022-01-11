@@ -8,12 +8,18 @@ dependencies:
   - backcall=0.2.0=pyh9f0ad1d_0
   - backports=1.0=py_2
   - backports.functools_lru_cache=1.6.4=pyhd8ed1ab_0
+  - boto3=1.18.21=pyhd3eb1b0_0
+  - botocore=1.21.41=pyhd3eb1b0_1
   - brotli=1.0.9=h3422bc3_6
   - brotli-bin=1.0.9=h3422bc3_6
+  - brotlipy=0.7.0=py39h1a28f6b_1002
   - bzip2=1.0.8=h3422bc3_4
   - ca-certificates=2021.10.26=hca03da5_2
   - certifi=2021.5.30=py39hca03da5_1
   - cffi=1.15.0=py39h52b1de0_0
+  - charset-normalizer=2.0.4=pyhd3eb1b0_0
+  - click=8.0.3=pyhd3eb1b0_0
+  - cryptography=36.0.0=py39h834c97f_0
   - cycler=0.11.0=pyhd8ed1ab_0
   - debugpy=1.5.1=py39hfb83b0d_0
   - decorator=5.1.1=pyhd8ed1ab_0
@@ -21,10 +27,13 @@ dependencies:
   - fonttools=4.28.5=py39h5161555_0
   - freetype=2.10.4=h17b34a0_1
   - future=0.18.2=py39h2804cbe_4
+  - idna=3.3=pyhd3eb1b0_0
   - ipykernel=6.6.1=py39h32adebf_0
   - ipython=7.31.0=py39h2804cbe_0
   - jbig=2.1=h3422bc3_2003
   - jedi=0.18.1=py39h2804cbe_0
+  - jmespath=0.10.0=pyhd3eb1b0_0
+  - joblib=1.1.0=pyhd3eb1b0_0
   - jpeg=9d=h27ca646_0
   - jupyter_client=7.1.0=pyhd8ed1ab_0
   - jupyter_core=4.9.1=py39h2804cbe_1
@@ -72,13 +81,20 @@ dependencies:
   - ptyprocess=0.7.0=pyhd3deb0d_0
   - pycparser=2.21=pyhd8ed1ab_0
   - pygments=2.11.2=pyhd8ed1ab_0
+  - pyopenssl=21.0.0=pyhd3eb1b0_1
   - pyparsing=3.0.6=pyhd8ed1ab_0
+  - pysocks=1.7.1=py39hca03da5_0
   - python=3.9.9=h43b31ca_0_cpython
   - python-dateutil=2.8.2=pyhd8ed1ab_0
   - python_abi=3.9=2_cp39
   - pytorch=1.10.0=cpu_py39h7601aee_0
   - pyzmq=22.3.0=py39h02c6a76_1
   - readline=8.1=hedafd6a_0
+  - regex=2021.7.6=py39h1a28f6b_0
+  - requests=2.27.1=pyhd3eb1b0_0
+  - s3transfer=0.5.0=pyhd3eb1b0_0
+  - sacremoses=0.0.43=pyhd3eb1b0_0
+  - sentencepiece=0.1.95=py39h525c30c_0
   - setuptools=60.5.0=py39h2804cbe_0
   - six=1.16.0=pyh6c4a22f_0
   - sleef=3.5.1=h156473d_2
@@ -90,10 +106,13 @@ dependencies:
   - traitlets=5.1.1=pyhd8ed1ab_0
   - typing_extensions=4.0.1=pyha770c72_0
   - tzdata=2021e=he74cb21_0
+  - urllib3=1.26.7=pyhd3eb1b0_0
   - wcwidth=0.2.5=pyh9f0ad1d_2
   - wheel=0.37.1=pyhd8ed1ab_0
   - xz=5.2.5=h642e427_1
   - zeromq=4.3.4=hbdafb3b_1
   - zlib=1.2.11=hee7b306_1013
   - zstd=1.5.1=h861e0a7_0
+  - pip:
+    - pytorch-transformers==1.2.0
 prefix: /Users/tijmenvanetten/miniconda3/envs/FSCS
