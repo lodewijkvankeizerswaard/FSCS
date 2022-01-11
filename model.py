@@ -32,7 +32,6 @@ import torch.utils.data as data
 
 import torchvision
 import torchvision.models as models
-from torchvision.datasets import CIFAR10
 from torchvision import transforms
 
 from cifar10_utils import get_train_validation_set, get_test_set
@@ -81,80 +80,6 @@ def get_model(model_name, num_classes=10):
     else:
         assert False, f'Unknown network architecture \"{model_name}\"'
     return cnn_model
-
-def plot_results(results_filename):
-    """
-    Plots the results that were exported into the given file.
-
-    Args:
-      results_filename - string which specifies the name of the file from which the results
-                         are loaded.
-
-    TODO:
-    - Visualize the results in plots
-
-    Hint: you are allowed to add additional input arguments if needed.
-    """
-    plt.clf()
-    with open(results_filename, 'r') as fin:
-        results = json.load(fin)
-
-    plt.axhline(results['base'])
-    for key, values in results.items():
-        plt.plot(np.arange(len(values))+1, values, label=str(key))
-
-    plt.grid()
-    plt.ylabel('Accuracy')
-    plt.xlabel('Severity')
-    plt.ylim(0.2,0.9)
-    plt.legend()
-    plt.title(os.path.basename(results_filename))
-    plt.tight_layout()
-    plt.savefig('plots/' + os.path.basename(results_filename) + '.png')
-    plt.show()
-
-
-
-def main(model_name, lr, batch_size, epochs, data_dir, seed):
-    """
-    Function that summarizes the training and testing of a model.
-
-    Args:
-        model: Model architecture to test.
-        batch_size: Batch size to use in the test.
-        data_dir: Directory where the CIFAR10 dataset should be loaded from or downloaded to.
-        device: Device to use for training.
-        seed: The seed to set before testing to ensure a reproducible test.
-    Returns:
-        test_results: Dictionary containing an overview of the accuracies achieved on the different
-                      corruption functions and the plain test set.
-
-    TODO:
-    Load model according to the model name.
-    Train the model (recommendation: check if you already have a saved model. If so, skip training and load it)
-    Test the model using the test_model function.
-    Save the results to disk.
-    """
-
-    device = torch.device(
-        "cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-    set_seed(seed)
-
-    checkpoint_name = model_name + '.pt'
-    model = get_model(model_name).to(device)
-    if os.path.exists("models/finished_" + checkpoint_name):
-        model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
-    else:
-        model = train_model(model, lr, batch_size, epochs,
-                            data_dir, checkpoint_name, device)
-    test_results = test_model(model, batch_size, data_dir, device, seed)
-
-    print(test_results)
-    with open(model_name, 'w') as fout:
-        json.dump(test_results, fout)
-
-    plot_results(model_name)
-    return test_results
 
 
 if __name__ == '__main__':
