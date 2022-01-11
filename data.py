@@ -9,7 +9,7 @@ class AdultDataset(data.Dataset):
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
         self._filename = "adult.test" if split == "test" else "adult.test"
-        self._data = pd.read_csv(datapath + self._filename)
+        self._data = pd.read_csv(datapath + "/" + self._filename)
 
     def __getitem__(self, i):
         # For now the preprocessing steps are unknown, so we just return the table row
@@ -24,6 +24,7 @@ def get_adult(root="data"):
     return (train, val, test)
 
 def get_celeba(root="data"):
+    assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
     train = CelebA(root=root, split="train", download=True)
     val = CelebA(root=root, split="val", download=True)
     test = CelebA(root=root, split="test", download=True)
@@ -38,3 +39,4 @@ def get_chexpert(root="data"):
 
 if __name__ == "__main__":
     dummy = get_adult()
+    dummy2 = get_celeba()
