@@ -36,6 +36,8 @@ from torchvision import transforms
 
 from cifar10_utils import get_train_validation_set, get_test_set
 
+LAMBDA = 0.7
+
 def set_seed(seed):
     """
     Function for setting the seed for reproducibility.
@@ -49,7 +51,7 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def get_model(model_name, num_classes=10):
+def get_model(model_name, pretrained):
     """
     Returns the model architecture for the provided model_name. 
 
@@ -63,28 +65,28 @@ def get_model(model_name, num_classes=10):
         cnn_model: nn.Module object representing the model architecture.
     """
     if model_name == 'debug':  # Use this model for debugging
-        cnn_model = nn.Sequential(
+        model = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(32*32*3, num_classes)
+            nn.Linear(32*32*3, pretrained)
         )
-    elif model_name == 'vgg11':
-        cnn_model = models.vgg11(num_classes=num_classes)
-    elif model_name == 'vgg11_bn':
-        cnn_model = models.vgg11_bn(num_classes=num_classes)
-    elif model_name == 'resnet18':
-        cnn_model = models.resnet18(num_classes=num_classes)
-    elif model_name == 'resnet34':
-        cnn_model = models.resnet34(num_classes=num_classes)
-    elif model_name == 'densenet121':
-        cnn_model = models.densenet121(num_classes=num_classes)
+    elif model_name == 'resnet50':
+        model = models.resnet50(pretrained=pretrained)
+    elif model_name =='BERT':
+        model = ...
     else:
         assert False, f'Unknown network architecture \"{model_name}\"'
-    return cnn_model
+        
+    model = torch.nn.Sequential(*(list(model.children())[:-1]))
+    return model
 
 
 class FairClassifier(nn.Module):
-    def __init__(self):
+    def __init__(self, input_model):
         super(FairClassifier, self).__init__()
+        self.input_model = get_model(input_model)
+        self.featurizer = 
 
     def forward(self, x):
-        pass
+        x = self.input_model(x)
+        x = self.featurizer(x)
+        y = self.classifier(x)
