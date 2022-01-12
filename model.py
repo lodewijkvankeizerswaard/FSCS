@@ -9,17 +9,6 @@ import numpy as np
 ADULT_DATASET_FEATURE_SIZE = 14
 NODE_SIZE = 80
 
-def set_seed(seed):
-    """
-    Function for setting the seed for reproducibility.
-    """
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.determinstic = True
-    torch.backends.cudnn.benchmark = False
 
 def drop_classification_layer(model):
     return torch.nn.Sequential(*(list(model.children())[:-1]))
