@@ -29,7 +29,6 @@ def get_model(dataset_name: str, pretrained: bool=True):
     """
     Returns the model architecture for the provided dataset_name. 
     """
-    # TODO:
     if dataset_name == 'adult':
         model = nn.Sequential(
             nn.Linear(ADULT_DATASET_FEATURE_SIZE, NODE_SIZE),
@@ -104,9 +103,3 @@ class FairClassifier(nn.Module):
         group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
 
         return F.sigmoid(joint_y), F.sigmoid(group_specific_y), F.sigmoid(group_agnostic_y)
-
-if __name__ == "__main__":
-    # model = FairClassifier('adult')
-    # print(model)
-
-    model = get_model('celeba')
