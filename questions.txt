@@ -1,0 +1,16 @@
+FACT Vragen:
+
+# Data
+Data Pre-processing compleet onduidelijk
+Grote of kleine dataset?
+
+# Training:
+Training split tussen:
+ - group specific models
+ - feature extractor + joint classifier
+
+# Model:
+BERT versie voor Civil Comments?
+Joint Classifier hoeveel lagen? parallel of sequentieel? Wat betekent “curly(D) + 1” ?
+Sigmoid gebruiken?
+Altijd SELU gebruiken na featurerizen? Ook voor pre-defined models
