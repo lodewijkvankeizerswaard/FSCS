@@ -34,8 +34,6 @@ else
     cd chexpert
     [[ ! -f "CheXpert-v1.0-small.zip" ]] && wget $URL
     unzip -u CheXpert-v1.0-small.zip
-    mv CheXpert-v1.0-small/* .
-    rmdir CheXpert-v1.0-small
     rm CheXpert-v1.0-small.zip
     cd ..
 fi
