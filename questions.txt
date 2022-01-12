@@ -2,7 +2,8 @@ FACT Vragen:
 
 # Data
 Data Pre-processing compleet onduidelijk
-Grote of kleine dataset?
+Grote of kleine dataset? (klein)
+CheXpert has multiple diseases one hot encoded. Should we merge them to make the classifier binary?
 
 # Training:
 Training split tussen:
