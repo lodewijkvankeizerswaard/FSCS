@@ -25,6 +25,9 @@ import torchvision.models as models
 
 import numpy as np
 
+ADULT_DATASET_FEATURE_SIZE = 14
+NODE_SIZE = 80
+
 def set_seed(seed):
     """
     Function for setting the seed for reproducibility.
@@ -37,62 +40,72 @@ def set_seed(seed):
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
 
+def drop_classification_layer(model):
+    return torch.nn.Sequential(*(list(model.children())[:-1]))
 
-def get_model(dataset_name, pretrained=True):
+
+def get_model(dataset_name: str, pretrained: bool=True):
     """
     Returns the model architecture for the provided dataset_name. 
     """
     # TODO:
-    ADULT_DATASET_FEATURE_SIZE = 80
     if dataset_name == 'adult':
         model = nn.Sequential(
-            nn.Linear(ADULT_DATASET_FEATURE_SIZE, 80),
+            nn.Linear(ADULT_DATASET_FEATURE_SIZE, NODE_SIZE),
             nn.SELU()
             )
+        out_features = NODE_SIZE
 
     elif dataset_name == 'celeba':
         model = models.resnet50(pretrained=pretrained)
-        model = torch.nn.Sequential(*(list(model.children())[:-1]))
+        model = drop_classification_layer(model)
+        out_features = 2048
 
     elif dataset_name == 'civilcomments':
         bert_model = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
-        print(bert_model)
         fc_model = nn.Sequential(
-            nn.Linear(1024, 80),
+            nn.Linear(1024, NODE_SIZE),
             nn.SELU()
             )
         model = torch.nn.Sequential(bert_model, fc_model)
+        out_features = NODE_SIZE
 
     elif dataset_name =='chexpert':
         model = models.densenet121(pretrained=pretrained)
-        model = torch.nn.Sequential(*(list(model.children())[:-1]))
+        model = drop_classification_layer(model)
+        out_features = 1024
+        
     else:
         assert False, f'Unknown network architecture \"{dataset_name}\"'
         
-    return model
+    return out_features, model
 
-def split(x, d):
+def split(x: torch.Tensor, d: torch.Tensor):
+    # Groups x samples based on d-values
     sorter = torch.argsort(d)
     _, counts = torch.unique(d, return_counts=True)
     return sorter, torch.split(x[sorter], counts.tolist())
 
 
 class FairClassifier(nn.Module):
-    def __init__(self, input_model):
+    def __init__(self, input_model: str):
+        """
+        FairClassifier Model
+        """
         super(FairClassifier, self).__init__()
-        self.featurizer = get_model(input_model)
-
-        print(self.featurizer.modules)
-        feature_size = self.featurizer.modules[-1].out_features
+        in_features, self.featurizer = get_model(input_model)
 
         # Fully Connected models for binary classes
-        self.fc0 = nn.Linear(feature_size, 1)
-        self.fc1 = nn.Linear(feature_size, 1)
+        self.fc0 = nn.Linear(in_features, 1)
+        self.fc1 = nn.Linear(in_features, 1)
 
         # Join Classifier T
-        self.joint_classifier = nn.Linear(feature_size, 1)
+        self.joint_classifier = nn.Linear(in_features, 1)
 
-    def forward(self, x, d_true, d_random):
+    def forward(self, x: torch.Tensor, d_true: torch.Tensor, d_random: torch.Tensor):
+        """
+        Forward Pass
+        """
         features = self.featurizer(x)
 
         joint_y = self.joint_classifier(features)
@@ -112,5 +125,7 @@ class FairClassifier(nn.Module):
         return F.sigmoid(joint_y), F.sigmoid(group_specific_y), F.sigmoid(group_agnostic_y)
 
 if __name__ == "__main__":
-    model = FairClassifier('adult')
-    print(model)
+    # model = FairClassifier('adult')
+    # print(model)
+
+    model = get_model('celeba')
