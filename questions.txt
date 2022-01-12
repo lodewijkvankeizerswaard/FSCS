@@ -8,6 +8,7 @@ Grote of kleine dataset?
 Training split tussen:
  - group specific models
  - feature extractor + joint classifier
+De auteurs gebruiken de grote CheXpert dataset. Help
 
 # Model:
 BERT versie voor Civil Comments?
