@@ -3,21 +3,22 @@
 cd data
 
 # ADULT DATASET
-if [ ! -d "adult" ]; then
-    mkdir adult
-fi
+# Make the directory
+[[ ! -d "adult" ]] &&  mkdir adult
 
+# Download the files
 cd adult
-wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
-wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+[[ ! -f "adult.data" ]] && wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+[[ ! -f "adult.test" ]] && wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+cd ..
 
 
 # CHEXPERT DATASET
-CHEXPRT_URL="" # See README.md
+URL="" # See README.md
 
-if [ ! -d "chexpert" ]; then
-    mkdir chexpert
-fi
-
-wget $CHEXPRT_URL
-
+# Make the directory
+[[ ! -d "chexpert" ]] &&  mkdir chexpert
+# Download the files
+cd chexpert
+[[ ! -f "CheXpert-v1.0-small.zip" ]] && wget $URL
+cd ..
