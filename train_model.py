@@ -1,10 +1,8 @@
-from posixpath import join
 import torch
 from torch import nn
 import numpy as np
 
 import os
-from torch.nn.modules import loss
 import tqdm 
 import argparse
 
@@ -49,10 +47,10 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     Args:
         model: Model architecture to train.
+        dataset: Specifiec dataset.
         lr: Learning rate to use in the optimizer.
         batch_size: Batch size to train the model with.
         epochs: Number of epochs to train the model for.
-        data_dir: Directory where the CIFAR10 dataset should be loaded from or downloaded to.
         checkpoint_name: Filename to save the best model on validation to.
         device: Device to use for training.
     Returns:
@@ -72,30 +70,33 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     # Initialize the optimizers and learning rate scheduler. 
     # We provide a recommend setup, which you are allowed to change if interested.
-    optimizer = torch.optim.Adam(lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_module = nn.CrossEntropyLoss()
 
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
-    best_accuracy = 0
+    lowest_loss = float('inf')
     for epoch in tqdm(range(epochs)):
         for modality, target, attributes in train_loader:
             optimizer.zero_grad()
             target = target.to(device)
 
             random_attribute = generate_random_attributes(attributes)
-            joint_y, group_spec_y, group_agno_y = model.forward(modality.to(device), attributes, random_attribute)
+
+            joint_y, group_spec_y, group_agno_y = model.forward(
+                modality.to(device), 
+                attributes, 
+                random_attribute)
+
             overall_loss = calculate_overall_loss(target, joint_y, group_spec_y, group_agno_y, loss_module)
             overall_loss.backward()
             optimizer.step()
-
-        val_accuracy = evaluate_model(model, validation_loader, device)
         
-        if val_accuracy > best_accuracy:
-            best_accuracy = val_accuracy
-            torch.save(model.state_dict(), dataset + 'pt')
+        if overall_loss < lowest_loss:
+            lowest_loss = overall_loss
+            torch.save(model.state_dict(), "models/" + checkpoint_name)
 
     # Load best model and return it.
-    model.load_state_dict(torch.load(checkpoint_name))
+    model.load_state_dict(torch.load("models/" + checkpoint_name))
     torch.save(model.state_dict(), "models/finished_" + checkpoint_name)
 
     return model
@@ -113,10 +114,7 @@ def evaluate_model(model, data_loader, device):
         TODO:
 
     """
-    with torch.no_grad():
-        pass
-
-    return
+    pass
 
 
 def test_model(model, dataset, batch_size, device, seed):
@@ -182,9 +180,6 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
     return test_results
 
 if __name__ == '__main__':
-    """
-
-    """
     # Command line arguments
     parser = argparse.ArgumentParser()
     
