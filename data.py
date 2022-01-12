@@ -34,11 +34,20 @@ class AdultDataset(data.Dataset):
         return x, t, d
 
 
-def get_adult(root="data"):
-    train = AdultDataset(root, split="train")
-    val = None
-    test =  AdultDataset(root, split="test")
-    return (train, val, test)
+def get_train_validation_set(dataset:str, root="data/"):
+    if dataset == "adult":
+        train = AdultDataset(root, split="train")
+        val = None
+        return train, val
+    else:
+        pass
+
+def get_test_set(dataset:str, root="data/"):
+    if dataset == "adult":
+        test = AdultDataset(root, split="test")
+        return test
+    else:
+        pass
 
 def get_celeba(root="data"):
     assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
