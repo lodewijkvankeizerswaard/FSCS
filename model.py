@@ -6,7 +6,7 @@ import torchvision.models as models
 
 import numpy as np
 
-ADULT_DATASET_FEATURE_SIZE = 14
+ADULT_DATASET_FEATURE_SIZE = 103
 NODE_SIZE = 80
 
 
@@ -51,9 +51,9 @@ def get_model(dataset_name: str, pretrained: bool=True):
 
 def split(x: torch.Tensor, d: torch.Tensor):
     # Groups x samples based on d-values
-    sorter = torch.argsort(d)
+    sorter = torch.argsort(d, dim=1)
     _, counts = torch.unique(d, return_counts=True)
-    return sorter, torch.split(x[sorter], counts.tolist())
+    return sorter, torch.split(x[sorter, :], counts.tolist())
 
 
 class FairClassifier(nn.Module):
@@ -80,10 +80,10 @@ class FairClassifier(nn.Module):
         joint_y = self.joint_classifier(features)
 
         # Split on random sampled d-values
-        random_indices, random_d_0, random_d_1 = split(features, d_random)
+        random_indices, (random_d_0, random_d_1) = split(features, d_random)
 
         # Split on true d-values
-        group_indices, group_d_0, group_d_1 = split(features, d_true)
+        group_indices, (group_d_0, group_d_1) = split(features, d_true)
 
         group_agnostic_y = torch.zeros(features.shape)
         group_specific_y = torch.zeros(features.shape)
@@ -91,4 +91,4 @@ class FairClassifier(nn.Module):
         group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
         group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
 
-        return F.sigmoid(joint_y), F.sigmoid(group_specific_y), F.sigmoid(group_agnostic_y)
+        return torch.sigmoid(joint_y), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)

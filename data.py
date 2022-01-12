@@ -2,7 +2,7 @@ import os
 import torch
 import pandas as pd
 import torch.utils.data as data
-from torchvision.datasets import CelebA
+# from torchvision.datasets import CelebA
 
 class AdultDataset(data.Dataset):
     def __init__(self, root, split="train"):
@@ -24,13 +24,16 @@ class AdultDataset(data.Dataset):
         
         self._data = data
 
+    def __len__(self):
+        return len(self._data.values)
+
     def __getitem__(self, i):
         # Alias the datafram
         df = self._data
         df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', 'sex_ Female' ,'sex_ Male'])]
         x = torch.Tensor(df_x.values[i])
         t = torch.Tensor([df.iloc[i]['salary_ <=50K'], df.iloc[i]['salary_ >50K']])
-        d = torch.Tensor([df.iloc[i]['sex_ Female'], df.iloc[i]['sex_ Male']])
+        d = torch.Tensor([df.iloc[i]['sex_ Male']])
         return x, t, d
 
 
@@ -49,12 +52,12 @@ def get_test_set(dataset:str, root="data/"):
     else:
         pass
 
-def get_celeba(root="data"):
-    assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
-    train = CelebA(root=root, split="train", download=True)
-    val = CelebA(root=root, split="val", download=True)
-    test = CelebA(root=root, split="test", download=True)
-    return (train, val, test)
+# def get_celeba(root="data"):
+#     assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
+#     train = CelebA(root=root, split="train", download=True)
+#     val = CelebA(root=root, split="val", download=True)
+#     test = CelebA(root=root, split="test", download=True)
+#     return (train, val, test)
 
     
 def get_civil(root="data"):
@@ -63,9 +66,9 @@ def get_civil(root="data"):
 def get_chexpert(root="data"):
     pass
 
-if __name__ == "__main__":
-    dummy = get_adult()
-    a = dummy[0][1]
-    print(dummy[0]._data.head())
-    print(a)
-    # dummy2 = get_celeba()
+# if __name__ == "__main__":
+#     dummy = get_adult()
+#     a = dummy[0][1]
+#     print(dummy[0]._data.head())
+#     print(a)
+#     # dummy2 = get_celeba()

@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 
 import os
-import tqdm 
+from tqdm import tqdm
 import argparse
 
 from data import get_train_validation_set, get_test_set
@@ -173,7 +173,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
     if os.path.exists("models/finished_" + checkpoint_name):
         model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
     else:
-        model = train_model(model, lr, batch_size, epochs,
+        model = train_model(model, dataset, lr, batch_size, epochs,
                             checkpoint_name, device)
     test_results = test_model(model, batch_size, dataset, device, seed)
     return test_results
