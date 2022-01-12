@@ -65,11 +65,10 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     train_set, val_set = get_train_validation_set(dataset)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
                                                shuffle=True, num_workers=2, drop_last=True)
-    validation_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
-                                                    shuffle=True, num_workers=2)
+    # validation_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
+    #                                                 shuffle=True, num_workers=2)
 
-    # Initialize the optimizers and learning rate scheduler. 
-    # We provide a recommend setup, which you are allowed to change if interested.
+    # Initialize the optimizer and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_module = nn.CrossEntropyLoss()
 
@@ -84,8 +83,8 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
             joint_y, group_spec_y, group_agno_y = model.forward(
                 modality.to(device), 
-                attributes, 
-                random_attribute)
+                attributes.to(device), 
+                random_attribute.to(device))
 
             overall_loss = calculate_overall_loss(target, joint_y, group_spec_y, group_agno_y, loss_module)
             overall_loss.backward()
@@ -184,7 +183,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # Model hyperparameters
-    parser.add_argument('--dataset', default='debug', type=str,
+    parser.add_argument('--dataset', default='adult', type=str,
                         help='Name of the dataset to evaluate on.')
     
     # Optimizer hyperparameters
