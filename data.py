@@ -32,7 +32,7 @@ class AdultDataset(data.Dataset):
         df = self._data
         df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', 'sex_ Female' ,'sex_ Male'])]
         x = torch.Tensor(df_x.values[i])
-        t = torch.Tensor([df.iloc[i]['salary_ <=50K'], df.iloc[i]['salary_ >50K']])
+        t = torch.Tensor([df.iloc[i]['salary_ >50K']])
         d = torch.Tensor([df.iloc[i]['sex_ Male']])
         return x, t, d
 

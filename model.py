@@ -53,7 +53,7 @@ def split(x: torch.Tensor, d: torch.Tensor):
     # Groups x samples based on d-values
     sorter = torch.argsort(d, dim=1)
     _, counts = torch.unique(d, return_counts=True)
-    return sorter, torch.split(x[sorter, :], counts.tolist())
+    return sorter, torch.split(torch.squeeze(x[sorter, :]), counts.tolist())
 
 
 class FairClassifier(nn.Module):
@@ -85,10 +85,11 @@ class FairClassifier(nn.Module):
         # Split on true d-values
         group_indices, (group_d_0, group_d_1) = split(features, d_true)
 
-        group_agnostic_y = torch.zeros(features.shape)
-        group_specific_y = torch.zeros(features.shape)
+        group_agnostic_y = torch.zeros(features.shape[0])
+        group_specific_y = torch.zeros(features.shape[0])
 
+        
         group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
         group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
 
-        return torch.sigmoid(joint_y), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)
+        return torch.sigmoid(joint_y).squeeze(), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)

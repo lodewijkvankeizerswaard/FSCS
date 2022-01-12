@@ -70,14 +70,14 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     # Initialize the optimizer and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_module = nn.CrossEntropyLoss()
+    loss_module = nn.BCELoss()
 
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     lowest_loss = float('inf')
     for epoch in tqdm(range(epochs)):
-        for modality, target, attributes in train_loader:
+        for modality, target, attributes in tqdm(train_loader):
             optimizer.zero_grad()
-            target = target.to(device)
+            target = torch.squeeze(target.to(device))
 
             random_attribute = generate_random_attributes(attributes)
 
