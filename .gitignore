@@ -1,6 +1,9 @@
 # MacOS
 .DS_Store
 
+# VSCODE
+.vscode
+
 # Large files
 data/
 models/
