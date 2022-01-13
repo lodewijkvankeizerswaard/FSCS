@@ -1,8 +1,10 @@
+from posixpath import join
 import torch
 from torch import nn
 import numpy as np
 
 import os
+from torch.nn.modules import loss
 from tqdm import tqdm
 import argparse
 
@@ -39,6 +41,25 @@ def calculate_overall_loss(target: torch.Tensor, joint_y: torch.Tensor, group_sp
     overall_loss = joint_loss + LAMBDA * (group_specific_loss - group_agnostic_loss)
     return overall_loss
 
+def train_epoch(model, optimizer, train_loader, loss_module, device):
+    for modality, target, attributes in train_loader:
+        optimizer.zero_grad()
+        target = torch.squeeze(target.to(device))
+
+        random_attribute = generate_random_attributes(attributes)
+
+        joint_y, group_spec_y, group_agno_y = model.forward(
+            modality.to(device), 
+            attributes.to(device), 
+            random_attribute.to(device))
+
+        overall_loss = calculate_overall_loss(target, joint_y, group_spec_y, group_agno_y, loss_module)
+
+        joint_loss = loss_module(joint_y, target)
+        joint_loss.backward()
+        # overall_loss.backward()
+        optimizer.step()
+
 
 def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int, 
                 epochs: int, checkpoint_name: str, device: str):
@@ -69,30 +90,23 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     #                                                 shuffle=True, num_workers=2)
 
     # Initialize the optimizer and loss function
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    group_specific_optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    joint_classifier_optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
     loss_module = nn.BCELoss()
 
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
-    lowest_loss = float('inf')
+    best_accuracy = 0
     for epoch in tqdm(range(epochs)):
-        for modality, target, attributes in tqdm(train_loader):
-            optimizer.zero_grad()
-            target = torch.squeeze(target.to(device))
+        train_epoch(model, group_specific_optimizer, train_loader, loss_module, device)
+        train_epoch(model, joint_classifier_optimizer, train_loader, loss_module, device)
 
-            random_attribute = generate_random_attributes(attributes)
-
-            joint_y, group_spec_y, group_agno_y = model.forward(
-                modality.to(device), 
-                attributes.to(device), 
-                random_attribute.to(device))
-
-            overall_loss = calculate_overall_loss(target, joint_y, group_spec_y, group_agno_y, loss_module)
-            overall_loss.backward()
-            optimizer.step()
+        train_accuracy = evaluate_model(model, train_loader, device)
+        print(train_accuracy)
         
-        if overall_loss < lowest_loss:
-            lowest_loss = overall_loss
-            torch.save(model.state_dict(), "models/" + checkpoint_name)
+        # if train_accuracy > best_accuracy:
+        #     best_accuracy = train_accuracy
+        #     torch.save(model.state_dict(), "models/" + checkpoint_name)
 
     # Load best model and return it.
     model.load_state_dict(torch.load("models/" + checkpoint_name))
@@ -100,6 +114,10 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     return model
 
+def num_correct_predictions(predictions, targets):
+    predictions = (predictions > 0.5)
+    count = (predictions == targets).sum()
+    return count.item()
 
 def evaluate_model(model, data_loader, device):
     """
@@ -110,10 +128,33 @@ def evaluate_model(model, data_loader, device):
         data_loader: The data loader of the dataset to evaluate on.
         device: Device to use for training.
     Returns:
-        TODO:
+        accuracy: The accuracy on the dataset.
 
+    TODO:
+    Implement the evaluation of the model on the dataset.
+    Remember to set the model in evaluation mode and back to training mode in the training loop.
     """
-    pass
+
+    num_correct = 0
+    total_samples = 0
+
+    with torch.no_grad():
+        for modality, target, attributes in data_loader:
+            target = torch.squeeze(target.to(device))
+
+            random_attribute = generate_random_attributes(attributes)
+
+            joint_y, _, _ = model.forward(
+                modality.to(device), 
+                attributes.to(device), 
+                random_attribute.to(device))
+            
+            num_correct += num_correct_predictions(joint_y, target)
+            total_samples += len(modality)
+
+    avg_accuracy = num_correct / total_samples
+
+    return avg_accuracy
 
 
 def test_model(model, dataset, batch_size, device, seed):
@@ -170,6 +211,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
 
     checkpoint_name = dataset+ '.pt'
     model = FairClassifier(dataset).to(device)
+    print(model)
     if os.path.exists("models/finished_" + checkpoint_name):
         model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
     else:
@@ -189,7 +231,7 @@ if __name__ == '__main__':
     # Optimizer hyperparameters
     parser.add_argument('--lr', default=0.01, type=float,
                         help='Learning rate to use')
-    parser.add_argument('--batch_size', default=128, type=int,
+    parser.add_argument('--batch_size', default=256, type=int,
                         help='Minibatch size')
 
     # Other hyperparameters
