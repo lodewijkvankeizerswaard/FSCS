@@ -2,11 +2,14 @@ import os
 import torch
 import pandas as pd
 import torch.utils.data as data
+
+from PIL import Image
+from torchvision import transforms
 # from torchvision.datasets import CelebA
 
 class AdultDataset(data.Dataset):
     def __init__(self, root, split="train"):
-        datapath = root + "/adult"
+        datapath = os.path.join(root, "/adult")
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
         self._filename = "adult.test" if split == "test" else "adult.data"
@@ -25,7 +28,7 @@ class AdultDataset(data.Dataset):
         self._data = data
 
     def __len__(self):
-        return len(self._data.values)
+        return len(self._data)
 
     def __getitem__(self, i):
         # Alias the datafram
@@ -36,6 +39,31 @@ class AdultDataset(data.Dataset):
         d = torch.Tensor([df.iloc[i]['sex_ Male']])
         return x, t, d
 
+class CheXpertDataset(data.Dataset):
+    def __init__(self, root, split="train"):
+        self._datapath = os.path.join(root, "chexpert")
+        assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
+        
+        self._filename = "train.csv" if split == "train" else "valid.csv"
+        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
+
+        self.transfrom = transforms.ToTensor()
+
+    def __getitem__(self, i):
+        # Alias the dataframe
+        df = self._table
+
+        # Get the image
+        filename = df.iloc[i]['Path']
+        img = Image.open(os.path.join(self._datapath, filename))
+
+        x = self.transfrom(img)
+        t = torch.Tensor([int(df.iloc[i]['No Finding'] != 1)]) # Count(1) = 22381, Count(nan) = 201033
+        d = torch.Tensor([df.iloc[i]['Support Devices']]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
+        return x, t, d
+
+    def __len__(self):
+        return len(self._table)
 
 def get_train_validation_set(dataset:str, root="data/"):
     if dataset == "adult":
@@ -52,23 +80,11 @@ def get_test_set(dataset:str, root="data/"):
     else:
         pass
 
-# def get_celeba(root="data"):
-#     assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
-#     train = CelebA(root=root, split="train", download=True)
-#     val = CelebA(root=root, split="val", download=True)
-#     test = CelebA(root=root, split="test", download=True)
-#     return (train, val, test)
-
-    
-def get_civil(root="data"):
-    pass
-
-def get_chexpert(root="data"):
-    pass
-
 # if __name__ == "__main__":
-#     dummy = get_adult()
-#     a = dummy[0][1]
+#     dummy = CheXpertDataset("data")
+#     a = dummy[1]
+#     print(a)
+#     print(len(dummy))
 #     print(dummy[0]._data.head())
 #     print(a)
 #     # dummy2 = get_celeba()
