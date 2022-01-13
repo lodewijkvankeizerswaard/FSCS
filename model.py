@@ -42,6 +42,7 @@ def get_model(dataset_name: str, pretrained: bool=True):
     elif dataset_name =='chexpert':
         model = models.densenet121(pretrained=pretrained)
         model = drop_classification_layer(model)
+        model = nn.Sequential(model, nn.AdaptiveMaxPool2d((1,1)))
         out_features = 1024
         
     else:
@@ -75,8 +76,8 @@ class FairClassifier(nn.Module):
         """
         Forward Pass
         """
-        x = (x - x.mean()) / torch.sqrt(x.var())
-        features = self.featurizer(x)
+        # x = (x - x.mean()) / torch.sqrt(x.var())
+        features = self.featurizer(x).squeeze()
 
         joint_y = self.joint_classifier(features)
 
@@ -86,10 +87,13 @@ class FairClassifier(nn.Module):
         # Split on true d-values
         group_indices, (group_d_0, group_d_1) = self.split(features, d_true)
 
-        group_agnostic_y = torch.zeros(features.shape[0])
-        group_specific_y = torch.zeros(features.shape[0])
+        group_agnostic_y = torch.zeros(features.shape[0], device=self.device())
+        group_specific_y = torch.zeros(features.shape[0], device=self.device())
 
         group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
         group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
 
         return torch.sigmoid(joint_y).squeeze(), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)
+
+    def device(self):
+        return next(self.parameters()).device

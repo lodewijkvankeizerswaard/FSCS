@@ -74,9 +74,9 @@ class CheXpertDataset(data.Dataset):
         filename = df.iloc[i]['Path']
         img = Image.open(os.path.join(self._datapath, filename))
 
-        x = self.transfrom(img)
+        x = self.transfrom(img)[:,:224,:224].repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
-        d = torch.Tensor([df.iloc[i]['Support Devices']]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
+        d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
 
     def __len__(self):
@@ -88,9 +88,13 @@ def get_train_validation_set(dataset:str, root="data/"):
     if dataset == "adult":
         train = AdultDataset(root, split="train")
         val = None
-        return train, val
+    elif dataset == "chexpert":
+        train = CheXpertDataset(root, split="train")
+        val = None
     else:
         pass
+
+    return train, val
 
 def get_test_set(dataset:str, root="data/"):
     # TODO add docstring
@@ -101,11 +105,14 @@ def get_test_set(dataset:str, root="data/"):
     else:
         pass
 
-# if __name__ == "__main__":
-#     dummy = CheXpertDataset("data")
-#     a = dummy[1]
-#     print(a)
-#     print(len(dummy))
-#     print(dummy._table.columns)
-#     # print(a)
-#     # dummy2 = get_celeba()
+if __name__ == "__main__":
+    dummy = CheXpertDataset("data")
+
+    for i in dummy:
+        print(i[0].shape)
+    # a = dummy[1]
+    # print(a)
+    # print(len(dummy))
+    # print(dummy._table.columns)
+    # print(a)
+    # dummy2 = get_celeba()

@@ -42,7 +42,7 @@ def calculate_overall_loss(target: torch.Tensor, joint_y: torch.Tensor, group_sp
     return overall_loss
 
 def train_epoch(model, optimizer, train_loader, loss_module, device):
-    for modality, target, attributes in train_loader:
+    for modality, target, attributes in tqdm(train_loader):
         optimizer.zero_grad()
         target = torch.squeeze(target.to(device))
 
@@ -225,13 +225,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # Model hyperparameters
-    parser.add_argument('--dataset', default='adult', type=str,
+    parser.add_argument('--dataset', default='chexpert', type=str,
                         help='Name of the dataset to evaluate on.')
     
     # Optimizer hyperparameters
     parser.add_argument('--lr', default=0.01, type=float,
                         help='Learning rate to use')
-    parser.add_argument('--batch_size', default=256, type=int,
+    parser.add_argument('--batch_size', default=32, type=int,
                         help='Minibatch size')
 
     # Other hyperparameters
