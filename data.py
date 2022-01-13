@@ -9,7 +9,7 @@ from torchvision import transforms
 
 class AdultDataset(data.Dataset):
     def __init__(self, root, split="train"):
-        datapath = os.path.join(root, "/adult")
+        datapath = os.path.join(root, "adult")
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
         self._filename = "adult.test" if split == "test" else "adult.data"

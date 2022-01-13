@@ -49,12 +49,6 @@ def get_model(dataset_name: str, pretrained: bool=True):
         
     return out_features, model
 
-def split(x: torch.Tensor, d: torch.Tensor):
-    # Groups x samples based on d-values
-    sorter = torch.argsort(d, dim=1)
-    _, counts = torch.unique(d, return_counts=True)
-    return sorter, torch.split(torch.squeeze(x[sorter, :]), counts.tolist())
-
 
 class FairClassifier(nn.Module):
     def __init__(self, input_model: str):
@@ -71,24 +65,30 @@ class FairClassifier(nn.Module):
         # Join Classifier T
         self.joint_classifier = nn.Linear(in_features, 1)
 
+    def split(self, x: torch.Tensor, d: torch.Tensor):
+        # Groups x samples based on d-values
+        sorter = torch.argsort(d, dim=1)
+        _, counts = torch.unique(d, return_counts=True)
+        return sorter, torch.split(torch.squeeze(x[sorter, :]), counts.tolist())
+
     def forward(self, x: torch.Tensor, d_true: torch.Tensor, d_random: torch.Tensor):
         """
         Forward Pass
         """
+        x = (x - x.mean()) / torch.sqrt(x.var())
         features = self.featurizer(x)
 
         joint_y = self.joint_classifier(features)
 
         # Split on random sampled d-values
-        random_indices, (random_d_0, random_d_1) = split(features, d_random)
+        random_indices, (random_d_0, random_d_1) = self.split(features, d_random)
 
         # Split on true d-values
-        group_indices, (group_d_0, group_d_1) = split(features, d_true)
+        group_indices, (group_d_0, group_d_1) = self.split(features, d_true)
 
         group_agnostic_y = torch.zeros(features.shape[0])
         group_specific_y = torch.zeros(features.shape[0])
 
-        
         group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
         group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
 
