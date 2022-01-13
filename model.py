@@ -75,7 +75,7 @@ class FairClassifier(nn.Module):
         """
         Forward Pass
         """
-        x = (x - x.mean()) / torch.sqrt(x.var())
+        # x = (x - x.mean()) / torch.sqrt(x.var())
         features = self.featurizer(x)
 
         joint_y = self.joint_classifier(features)
