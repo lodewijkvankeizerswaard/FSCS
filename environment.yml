@@ -17,3 +17,4 @@ dependencies:
   - pip:
     - tensorboard
     - pytorch-transformers==1.2.0
+    - pillow 
