@@ -5,9 +5,14 @@ import torch.utils.data as data
 
 from PIL import Image
 from torchvision import transforms
-# from torchvision.datasets import CelebA
+
+# TODO add Civil Comments dataset object
+# TODO add CelebA dataset object
 
 class AdultDataset(data.Dataset):
+    # TODO add docstrings
+    # TODO add data bias 
+    # TODO improve comments
     def __init__(self, root, split="train"):
         datapath = os.path.join(root, "/adult")
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
@@ -40,6 +45,10 @@ class AdultDataset(data.Dataset):
         return x, t, d
 
 class CheXpertDataset(data.Dataset):
+    # TODO add docstring
+    # TODO change target to Pleural Effusion
+    # TODO image preprocessing
+    # TODO improve comments
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
@@ -66,6 +75,8 @@ class CheXpertDataset(data.Dataset):
         return len(self._table)
 
 def get_train_validation_set(dataset:str, root="data/"):
+    # TODO add docstring
+    # TODO add civil comments, chexpert, celeba
     if dataset == "adult":
         train = AdultDataset(root, split="train")
         val = None
@@ -74,6 +85,8 @@ def get_train_validation_set(dataset:str, root="data/"):
         pass
 
 def get_test_set(dataset:str, root="data/"):
+    # TODO add docstring
+    # TODO add civil comments, chexpert, celeba
     if dataset == "adult":
         test = AdultDataset(root, split="test")
         return test
