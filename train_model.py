@@ -10,6 +10,7 @@ import argparse
 
 from data import get_train_validation_set, get_test_set
 from model import FairClassifier
+# from torch.utils.tensorboard import SummaryWriter
 
 LAMBDA = 0.7 
 
@@ -88,9 +89,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     #                                                 shuffle=True, num_workers=2)
 
     # Initialize the optimizer and loss function
-    group_specific_params = []
-    group_specific_params.extend(model.fc0.parameters())
-    group_specific_params.extend(model.fc1.parameters())
+    group_specific_params = [param for gsm in model.group_specific_models for param in gsm.parameters()]
     join_classifier_params = []
     join_classifier_params.extend(model.featurizer.parameters())
     join_classifier_params.extend(model.joint_classifier.parameters())
@@ -100,11 +99,32 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     loss_module = nn.BCELoss()
 
+    print(model)
+
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     best_accuracy = 0
     for epoch in tqdm(range(epochs)):
-        train_epoch(model, group_specific_optimizer, train_loader, loss_module, device)
-        train_epoch(model, joint_classifier_optimizer, train_loader, loss_module, device)
+
+        # Group specific training
+        for x, t, d in tqdm(train_loader):
+            group_specific_optimizer.zero_grad()
+            pred_group = model.forward_group(x, d)
+
+            group_specific_loss = loss_module(pred_group, t.squeeze())
+            group_specific_loss.backward()
+
+            group_specific_optimizer.step()
+
+        # Feature extractor and joint classifier trainer
+
+        for x, t, d in tqdm(train_loader):
+            joint_classifier_optimizer.zero_grad()
+
+
+
+        
+        # train_epoch(model, group_specific_optimizer, train_loader, loss_module, device)
+        # train_epoch(model, joint_classifier_optimizer, train_loader, loss_module, device)
         
         # if train_accuracy > best_accuracy:
         #     best_accuracy = train_accuracy
@@ -209,6 +229,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
 
     device = torch.device(
         "cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cpu")
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
@@ -226,7 +247,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # Model hyperparameters
-    parser.add_argument('--dataset', default='chexpert', type=str,
+    parser.add_argument('--dataset', default='adult', type=str,
                         help='Name of the dataset to evaluate on.')
     
     # Optimizer hyperparameters
