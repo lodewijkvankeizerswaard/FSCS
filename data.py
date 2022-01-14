@@ -2,6 +2,8 @@ import os
 import torch
 import pandas as pd
 import torch.utils.data as data
+import zipfile
+import gdown
 # from torchvision.datasets import CelebA
 
 class AdultDataset(data.Dataset):
@@ -52,19 +54,36 @@ def get_test_set(dataset:str, root="data/"):
     else:
         pass
 
-class CelebA(data.Dataset):
-    def __init__(self, root, split = "train"):
-        datapath = root + "/celeba"
-        assert os.path.exists(datapath), "CelebA dataset not found! Did you run 'get_data.sh'?"
+# class CelebA(data.Dataset):
+#     def __init__(self, root, split = "train"):
+#         datapath = root + "/celeba"
+#         assert os.path.exists(datapath), "CelebA dataset not found! Did you run 'get_data.sh'?"
+#
+#         self._filename = "celeba.test" if split == "test" else "adult.data"
+#         self.url = 'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'
 
-        self._filename = "celeba.test" if split == "test" else "adult.data"
-        self.url = 'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'
+
 # def get_celeba(root="data"):
 #     assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
 #     train = CelebA(root=root, split="train", download=True)
 #     val = CelebA(root=root, split="val", download=True)
 #     test = CelebA(root=root, split="test", download=True)
 #     return (train, val, test)
+
+def get_celeba(root = "data"):
+    data_root = root + "/celeba"
+    dataset_url = 'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'
+    download_path = f'{data_root}/img_align_celeba.zip'
+    dataset_folder = f'{root}/img_align_celeba'
+    if os.path.exists(download_path):
+        print("CelebA dataset already downloaded!")
+        return
+    if not os.path.exists(data_root):
+        os.makedirs(data_root)
+        os.makedirs(dataset_folder)
+    gdown.download(dataset_url, download_path, quiet = False)
+    with zipfile.ZipFile(download_path, 'r') as zip:
+        zip.extractall(dataset_folder)
 
 
 def get_civil(root="data"):
@@ -73,9 +92,5 @@ def get_civil(root="data"):
 def get_chexpert(root="data"):
     pass
 
-# if __name__ == "__main__":
-#     dummy = get_adult()
-#     a = dummy[0][1]
-#     print(dummy[0]._data.head())
-#     print(a)
-#     # dummy2 = get_celeba()
+if __name__ == "__main__":
+    dummy = get_celeba()
