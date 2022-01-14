@@ -4,6 +4,7 @@ import pandas as pd
 import torch.utils.data as data
 import zipfile
 import gdown
+from PIL import Image
 # from torchvision.datasets import CelebA
 
 class AdultDataset(data.Dataset):
@@ -85,6 +86,12 @@ def get_celeba(root = "data"):
     with zipfile.ZipFile(download_path, 'r') as zip:
         zip.extractall(dataset_folder)
 
+def preprocess_celeba(img_dir = "data\celeba\img_align_celeba\img_align_celeba"):
+    image_names = os.listdir(img_dir)
+    img_path = os.path.join(img_dir, image_names[0])
+    print(img_path)
+
+
 
 def get_civil(root="data"):
     pass
@@ -94,3 +101,4 @@ def get_chexpert(root="data"):
 
 if __name__ == "__main__":
     dummy = get_celeba()
+    preprocess_celeba()
