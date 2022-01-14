@@ -42,22 +42,20 @@ def calculate_overall_loss(target: torch.Tensor, joint_y: torch.Tensor, group_sp
     return overall_loss
 
 def train_epoch(model, optimizer, train_loader, loss_module, device):
-    for modality, target, attributes in train_loader:
+    for modality, target, attributes in tqdm(train_loader):
         optimizer.zero_grad()
         target = torch.squeeze(target.to(device))
 
         random_attribute = generate_random_attributes(attributes)
 
         joint_y, group_spec_y, group_agno_y = model.forward(
-            modality.to(device), 
-            attributes.to(device), 
-            random_attribute.to(device))
+                modality.to(device),
+                attributes.to(device),
+                random_attribute.to(device))
 
         overall_loss = calculate_overall_loss(target, joint_y, group_spec_y, group_agno_y, loss_module)
 
-        joint_loss = loss_module(joint_y, target)
-        joint_loss.backward()
-        # overall_loss.backward()
+        overall_loss.backward()
         optimizer.step()
 
 
@@ -90,8 +88,15 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     #                                                 shuffle=True, num_workers=2)
 
     # Initialize the optimizer and loss function
-    group_specific_optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    joint_classifier_optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    group_specific_params = []
+    group_specific_params.extend(model.fc0.parameters())
+    group_specific_params.extend(model.fc1.parameters())
+    join_classifier_params = []
+    join_classifier_params.extend(model.featurizer.parameters())
+    join_classifier_params.extend(model.joint_classifier.parameters())
+
+    group_specific_optimizer = torch.optim.SGD(group_specific_params, lr=lr)
+    joint_classifier_optimizer = torch.optim.SGD(join_classifier_params, lr=lr)
 
     loss_module = nn.BCELoss()
 
@@ -100,9 +105,6 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     for epoch in tqdm(range(epochs)):
         train_epoch(model, group_specific_optimizer, train_loader, loss_module, device)
         train_epoch(model, joint_classifier_optimizer, train_loader, loss_module, device)
-
-        train_accuracy = evaluate_model(model, train_loader, device)
-        print(train_accuracy)
         
         # if train_accuracy > best_accuracy:
         #     best_accuracy = train_accuracy
@@ -144,9 +146,9 @@ def evaluate_model(model, data_loader, device):
 
             random_attribute = generate_random_attributes(attributes)
 
-            joint_y, _, _ = model.forward(
-                modality.to(device), 
-                attributes.to(device), 
+            joint_y = model.forward(
+                modality.to(device),
+                attributes.to(device),
                 random_attribute.to(device))
             
             num_correct += num_correct_predictions(joint_y, target)
@@ -211,7 +213,6 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
 
     checkpoint_name = dataset+ '.pt'
     model = FairClassifier(dataset).to(device)
-    print(model)
     if os.path.exists("models/finished_" + checkpoint_name):
         model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
     else:
@@ -225,13 +226,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # Model hyperparameters
-    parser.add_argument('--dataset', default='adult', type=str,
+    parser.add_argument('--dataset', default='chexpert', type=str,
                         help='Name of the dataset to evaluate on.')
     
     # Optimizer hyperparameters
     parser.add_argument('--lr', default=0.01, type=float,
                         help='Learning rate to use')
-    parser.add_argument('--batch_size', default=256, type=int,
+    parser.add_argument('--batch_size', default=32, type=int,
                         help='Minibatch size')
 
     # Other hyperparameters
