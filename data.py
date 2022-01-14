@@ -10,6 +10,11 @@ from torchvision import transforms
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
 
+# Editing these global variables has a very high chance of breaking the data
+ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
+ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
+ADULT_ATTRIBUTE = 'sex'
+
 class AdultDataset(data.Dataset):
     # TODO add docstrings
     # TODO add data bias 
@@ -25,26 +30,57 @@ class AdultDataset(data.Dataset):
                    'hours-per-week', 'native-country', 'salary'])[1:]
 
         # One-hot encode categorical data
-        for colum in ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']:
-            table = table[table[colum] != ' ?']
-            onehot_colum = pd.get_dummies(table[colum], prefix=colum)
-            table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
-            table = table.drop(columns=colum)
+        table = self._onehot_cat(table, ADULT_CATEGORICAL)
 
         # Normalize continous columns
-        for column in ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']:
+        table = self._normalize_con(table, ADULT_CONTINOUS)
+        
+        self._table = table
+
+    def _onehot_cat(self, table: pd.DataFrame, categories: list):
+        """One hot encodes the columns of the table for which the names are in categories
+
+        Args:
+            table (pd.DataFrame): the table containing the data
+            categories (list): a list of column names which to encode
+
+        Returns:
+            pd.DataFrame: the table object with the one hot encoded columns appended, and the original column removed
+        """
+        for column in categories:
+            table = table[table[column] != ' ?']
+            onehot_colum = pd.get_dummies(table[column], prefix=column)
+            table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
+            table = table.drop(columns=column)
+        return table
+
+    def _normalize_con(self, table: pd.DataFrame, categories: list):
+        """Normalizes the columns of a table to have zero mean and unit variance.
+
+        Args:
+            table (pd.Dataframe): the table containing the data.
+            categories (list): a list of column names present in the table that need to be normalized.
+
+        Returns:
+            pd.Dataframe: the table with the given columns normalized.
+        """
+        for column in categories:
             m = table[column].mean()
             v = table[column].std()**2
 
             table[column] -= m
             table[column] /= v
-        
-        self._table = table
+        return table
+
+    def sample_d(self, size: tuple):
+        return torch.randint(0, 1, size=size, )
 
     def __len__(self):
+        """Returns the amount of datapoints in this data object."""
         return len(self._table)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int):
+        """Gets the i-th element from the table."""
         # Alias the datafram
         df = self._table
         df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', 'sex_ Female' ,'sex_ Male'])]
