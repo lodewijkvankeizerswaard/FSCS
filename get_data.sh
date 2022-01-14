@@ -44,7 +44,7 @@ fi
 # CIVIL COMMENTS DATASET #
 ##########################
 # CHECK IF THIS IS CORRECT WITH THE OUTPUT OF THE BERT MODEL!!!!!
-if [[ -f civil/train.csv && -f civil/valid.csv && -d civil/train && civil/valid ]]; then
+if [[ -f civil/all_data.csv && -f civil/train.csv && -f civil/test.csv ]]; then # We assume you have everything if you have these tree files
     echo "Civil Comments dataset found!"
 else
     # Before starting you need to install kaggle with pip or anaconda
@@ -53,7 +53,9 @@ else
     # This file is called kaggle.json
     [[ ! -d "civil" ]] &&  mkdir civil
     cd civil
-    kaggle competitions download -c jigsaw-unintended-bias-in-toxicity-classification
+    [[ ! -f jigsaw-unintended-bias-in-toxicity-classification.zip ]] && kaggle competitions download -c jigsaw-unintended-bias-in-toxicity-classification
+    unzip -u jigsaw-unintended-bias-in-toxicity-classification.zip
+    rm jigsaw-unintended-bias-in-toxicity-classification.zip
     cd ..
 fi
 
@@ -61,7 +63,7 @@ fi
 # CELEBA DATASET #
 ##################
 CELEB_URL="'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'"
-if [[ -d celeba/img_align_celeba && false == true ]]; then
+if [[ -d celeba/img_align_celeba ]]; then
     echo "CelebA dataset found!"
 else
     [[ ! -d "celeba" ]] &&  mkdir celeba
