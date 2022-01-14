@@ -58,7 +58,7 @@ class CelebA(data.Dataset):
         assert os.path.exists(datapath), "CelebA dataset not found! Did you run 'get_data.sh'?"
 
         self._filename = "celeba.test" if split == "test" else "adult.data"
-
+        self.url = 'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'
 # def get_celeba(root="data"):
 #     assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
 #     train = CelebA(root=root, split="train", download=True)
