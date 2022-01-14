@@ -5,6 +5,7 @@
 # taken. Please see the dataset specific steps in `README.md`.
 
 cd data
+source activate FSCS
 
 #################
 # ADULT DATASET #
@@ -24,15 +25,16 @@ fi
 ####################
 # CHEXPERT DATASET #
 ####################
-URL="" # See README.md
-if [[ -f chexpert/train.csv && -f chexpert/valid.csv && -d chexpert/train && chexpert/valid ]]; then
+CHXPRT_URL="" # See README.md
+CHXPRT_DIR="chexpert/CheXpert-v1.0-small"
+if [[ -f $CHXPRT_DIR/train.csv && -f $CHXPRT_DIR/valid.csv && -d $CHXPRT_DIR/train && $CHXPRT_DIR/valid ]]; then
     echo "CheXpert dataset found!"
 else
     # Make the directory
     [[ ! -d "chexpert" ]] &&  mkdir chexpert
     # Download the files
     cd chexpert
-    [[ ! -f "CheXpert-v1.0-small.zip" ]] && wget $URL
+    [[ ! -f "CheXpert-v1.0-small.zip" ]] && wget $CHXPRT_URL
     unzip -u CheXpert-v1.0-small.zip
     rm CheXpert-v1.0-small.zip
     cd ..
@@ -58,11 +60,13 @@ fi
 ##################
 # CELEBA DATASET #
 ##################
-# CHECK IF THIS IS CORRECT WITH THE OUTPUT OF THE BERT MODEL!!!!!
-if [[ -f celeba/train.csv && -f celeba/valid.csv && -d celeba/train && celeba/valid ]]; then
+CELEB_URL="'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'"
+if [[ -d celeba/img_align_celeba && false == true ]]; then
     echo "CelebA dataset found!"
 else
     [[ ! -d "celeba" ]] &&  mkdir celeba
     cd celeba
-     
+    [[ ! -f "img_align_celeba.zip" ]] && python -c "import gdown; gdown.download($CELEB_URL, '.')"
+    unzip -u img_align_celeba.zip
+    rm img_align_celeba.zip
 fi
