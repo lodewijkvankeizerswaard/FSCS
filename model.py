@@ -1,3 +1,4 @@
+from tokenize import group
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -52,7 +53,7 @@ def get_model(dataset_name: str, pretrained: bool=True):
 
 
 class FairClassifier(nn.Module):
-    def __init__(self, input_model: str):
+    def __init__(self, input_model: str, group_values: int = 2):
         """
         FairClassifier Model
         """
@@ -60,8 +61,7 @@ class FairClassifier(nn.Module):
         in_features, self.featurizer = get_model(input_model)
 
         # Fully Connected models for binary classes
-        self.fc0 = nn.Linear(in_features, 1)
-        self.fc1 = nn.Linear(in_features, 1)
+        self.group_specific_models = nn.ModuleList([nn.Linear(in_features, 1) for key in range(group_values)])
 
         # Join Classifier T
         self.joint_classifier = nn.Linear(in_features, 1)
@@ -72,28 +72,41 @@ class FairClassifier(nn.Module):
         _, counts = torch.unique(d, return_counts=True)
         return sorter, torch.split(torch.squeeze(x[sorter, :]), counts.tolist())
 
-    def forward(self, x: torch.Tensor, d_true: torch.Tensor, d_random: torch.Tensor):
-        """
-        Forward Pass
-        """
-        # x = (x - x.mean()) / torch.sqrt(x.var())
+    def forward_group(self, x: torch.Tensor, d: torch.Tensor):
+        """ The forward pass of the group specific models. """
+
         features = self.featurizer(x).squeeze()
 
-        joint_y = self.joint_classifier(features)
+        # Sort the inputs on the value of d
+        group_indices, group_splits = self.split(features, d)
 
-        # Split on random sampled d-values
-        random_indices, (random_d_0, random_d_1) = self.split(features, d_random)
+        group_pred = torch.zeros(features.shape[0], device=self.device())
+        group_pred[group_indices] = torch.cat([self.group_specific_models[i](group_split) for i, group_split in enumerate(group_splits)])
 
-        # Split on true d-values
-        group_indices, (group_d_0, group_d_1) = self.split(features, d_true)
+        return torch.sigmoid(group_pred)
 
-        group_agnostic_y = torch.zeros(features.shape[0], device=self.device())
-        group_specific_y = torch.zeros(features.shape[0], device=self.device())
+    # def forward(self, x: torch.Tensor, d_true: torch.Tensor, d_random: torch.Tensor):
+    #     """
+    #     Forward Pass
+    #     """
+    #     # x = (x - x.mean()) / torch.sqrt(x.var())
+    #     features = self.featurizer(x).squeeze()
 
-        group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
-        group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
+    #     joint_y = self.joint_classifier(features)
 
-        return torch.sigmoid(joint_y).squeeze(), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)
+    #     # Split on random sampled d-values
+    #     random_indices, (random_d_0, random_d_1) = self.split(features, d_random)
+
+    #     # Split on true d-values
+    #     group_indices, (group_d_0, group_d_1) = self.split(features, d_true)
+
+    #     group_agnostic_y = torch.zeros(features.shape[0], device=self.device())
+    #     group_specific_y = torch.zeros(features.shape[0], device=self.device())
+
+    #     group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
+    #     group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
+
+    #     return torch.sigmoid(joint_y).squeeze(), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)
 
     def device(self):
         return next(self.parameters()).device
