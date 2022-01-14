@@ -1,11 +1,13 @@
 import os
 import torch
 import pandas as pd
+from collections import Counter
 import torch.utils.data as data
 import zipfile
 import gdown
 from PIL import Image
 from torchvision import transforms
+
 
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
@@ -13,7 +15,8 @@ from torchvision import transforms
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
 ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
-ADULT_ATTRIBUTE = 'sex'
+# ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
+ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
@@ -29,6 +32,10 @@ class AdultDataset(data.Dataset):
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'])[1:]
 
+        # Find the ratio for the attribute to be able to sample from this distribution
+        probs = self._attr_ratio(table)
+        self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
+
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
 
@@ -37,7 +44,24 @@ class AdultDataset(data.Dataset):
         
         self._table = table
 
-    def _onehot_cat(self, table: pd.DataFrame, categories: list):
+    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+        """Finds the ratio in which the attribute occurs in the data set, such that we can later
+        sample from this distribution. 
+
+        Args:
+            table (pd.DataFrame): the table from which to obtain the attribute ratio.
+
+        Returns:
+            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+        """
+        counts = Counter(table[ADULT_ATTRIBUTE['column']])
+        ratios = torch.Tensor([counts[attr_val] for attr_val in ADULT_ATTRIBUTE['values']])
+        return ratios / sum(ratios)
+
+    def sample_d(self, size: tuple) -> torch.Tensor:
+        return self._attr_dist.sample(size)
+
+    def _onehot_cat(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
         """One hot encodes the columns of the table for which the names are in categories
 
         Args:
@@ -51,10 +75,11 @@ class AdultDataset(data.Dataset):
             table = table[table[column] != ' ?']
             onehot_colum = pd.get_dummies(table[column], prefix=column)
             table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
-            table = table.drop(columns=column)
+            if column != ADULT_ATTRIBUTE['column']:
+                table = table.drop(columns=column)
         return table
 
-    def _normalize_con(self, table: pd.DataFrame, categories: list):
+    def _normalize_con(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
         """Normalizes the columns of a table to have zero mean and unit variance.
 
         Args:
@@ -72,22 +97,38 @@ class AdultDataset(data.Dataset):
             table[column] /= v
         return table
 
-    def sample_d(self, size: tuple):
-        return torch.randint(0, 1, size=size, )
+    def datapoint_size(self) -> int:
+        """Return the amount of elements in each x value
 
-    def __len__(self):
+        Returns:
+            int: the amount of elements in x
+        """
+        return len(self[0][0])
+
+    def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
         return len(self._table)
 
-    def __getitem__(self, i: int):
-        """Gets the i-th element from the table."""
+    def __getitem__(self, i: int) -> tuple:
+        """Gets the i-th element from the table. 
+
+        Args:
+            i (int): item number
+
+        Returns:
+            tuple: The x value includes all one hot encoded and continous data except for the target 
+        value, and the column that contains the non-one hot encoded attribute (since this is only used as a map for d). The t 
+        value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
+        the ADULT_ATTRIBUTE['values'] list. This determines the mapping for the group specific model later on.
+        """
         # Alias the datafram
         df = self._table
-        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', 'sex_ Female' ,'sex_ Male'])]
-        x = torch.Tensor(df_x.values[i])
-        t = torch.Tensor([df.iloc[i]['salary_ >50K']])
-        d = torch.Tensor([df.iloc[i]['sex_ Male']])
-        return x, t, d
+        # x is all values, except the target value, and the attribute column
+        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', ADULT_ATTRIBUTE['column']])]
+        x = df_x.values[i]
+        t = [df.iloc[i]['salary_ >50K']]
+        d = [ ADULT_ATTRIBUTE['values'].index(df.iloc[i][ ADULT_ATTRIBUTE['column'] ])]
+        return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
@@ -186,6 +227,8 @@ def get_civil(root="data"):
 def get_chexpert(root="data"):
     pass
 
-if __name__ == "__main__":
-    dummy = get_celeba()
-    preprocess_celeba()
+# if __name__ == "__main__":
+#     dummy = AdultDataset('data')
+#     print(dummy[3])
+#     print(dummy.sample_d((10,10)))
+#     print(dummy.datapoint_size())
