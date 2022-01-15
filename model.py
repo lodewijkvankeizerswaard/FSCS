@@ -43,7 +43,7 @@ def get_model(dataset_name: str, pretrained: bool=True):
     elif dataset_name =='chexpert':
         model = models.densenet121(pretrained=pretrained)
         model = drop_classification_layer(model)
-        model = nn.Sequential(model, nn.AdaptiveMaxPool2d((1,1)))
+        model = nn.Sequential(model, nn.AdaptiveAvgPool2d((1,1)))
         out_features = 1024
         
     else:
