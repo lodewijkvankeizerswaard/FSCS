@@ -31,15 +31,15 @@ class AdultDataset(data.Dataset):
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'])[1:]
 
-        # Find the ratio for the attribute to be able to sample from this distribution
-        probs = self._attr_ratio(table)
-        self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
-
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
 
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
+
+        # Find the ratio for the attribute to be able to sample from this distribution
+        probs = self._attr_ratio(table)
+        self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
         
         self._table = table
 
