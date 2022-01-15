@@ -85,42 +85,47 @@ class FairClassifier(nn.Module):
 
         return torch.sigmoid(group_pred)
 
-    def joint_forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Returns the model prediction by the joint classifier
+    def forward(self, x: torch.Tensor, d: torch.Tensor = None, d_tilde: torch.Tensor = None):
+        """Returns the model prediction by the joint classifier, and the group specific and 
+        group agnostic models if `d` and `d_tilde` are given respectively.
 
         Args:
             x (torch.Tensor): the input values for the classifer
+            d (torch.Tensor): the true attributes of the data points
+            d_tilde (torch.Tensor): a random attributes
 
         Returns:
-            torch.Tensor: the label prediction by the joint classifer
+            (torch.Tensor, torch.Tensor, torch.Tensor): the label prediction by the joint classifer
+            the group specific model, and the group agnostic model. If `d` or `d_tilde` are `None`, the
+            respective output is also `None`.
         """
+
         features = self.featurizer(x).squeeze()
+
+        # Group specific
+        if type(d) == torch.Tensor:
+            group_spe_indices, group_spe_splits = self.split(features, d)
+
+            group_spe_pred = torch.zeros(features.shape[0], device=self.device())
+            group_spe_pred[group_spe_indices] = torch.cat([self.group_specific_models[i](group_split) for i, group_split in enumerate(group_spe_splits)])
+            group_spe_pred = torch.sigmoid(group_spe_pred)
+        else:
+            group_spe_pred = None
+
+        # Group agnostic
+        if type(d_tilde) == torch.Tensor:
+            group_agn_indices, group_agn_splits = self.split(features, d_tilde)
+
+            group_agn_pred = torch.zeros(features.shape[0], device=self.device())
+            group_agn_pred[group_agn_indices] = torch.cat([self.group_specific_models[i](group_split) for i, group_split in enumerate(group_agn_splits)])
+            group_agn_pred = torch.sigmoid(group_agn_pred)
+        else:
+            group_agn_pred = None
+
         joint_pred = self.joint_classifier(features)
+        joint_pred = torch.sigmoid(joint_pred)
 
-        return torch.sigmoid(joint_pred).squeeze()
-
-    # def forward(self, x: torch.Tensor, d_true: torch.Tensor, d_random: torch.Tensor):
-    #     """
-    #     Forward Pass
-    #     """
-    #     # x = (x - x.mean()) / torch.sqrt(x.var())
-    #     features = self.featurizer(x).squeeze()
-
-    #     joint_y = self.joint_classifier(features)
-
-    #     # Split on random sampled d-values
-    #     random_indices, (random_d_0, random_d_1) = self.split(features, d_random)
-
-    #     # Split on true d-values
-    #     group_indices, (group_d_0, group_d_1) = self.split(features, d_true)
-
-    #     group_agnostic_y = torch.zeros(features.shape[0], device=self.device())
-    #     group_specific_y = torch.zeros(features.shape[0], device=self.device())
-
-    #     group_agnostic_y[random_indices] = torch.cat([self.fc0(random_d_0), self.fc1(random_d_1)])
-    #     group_specific_y[group_indices] = torch.cat([self.fc0(group_d_0), self.fc1(group_d_1)])
-
-    #     return torch.sigmoid(joint_y).squeeze(), torch.sigmoid(group_specific_y), torch.sigmoid(group_agnostic_y)
+        return joint_pred.squeeze(), group_spe_pred, group_agn_pred
 
     def device(self):
         return next(self.parameters()).device

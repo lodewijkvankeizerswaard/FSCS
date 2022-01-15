@@ -95,26 +95,23 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             d_tilde = train_loader.dataset.sample_d(d.shape)
 
             # Get model predictions
-            pred_group_spe = model.group_forward(x, d)
-            pred_group_agn = model.group_forward(x, d_tilde)
-            pred_joint = model.joint_forward(x)
+            pred_joint, pred_group_spe, pred_group_agn = model.forward(x, d, d_tilde)
 
-            # Update feature extractor
+            # Feature extractor loss
             feature_extractor_optimizer.zero_grad()
             feature_ex_loss = loss_module(pred_joint, t.squeeze()) \
                                 + LAMBDA * (loss_module(pred_group_spe, t.squeeze()) - loss_module(pred_group_agn, t.squeeze()))
             feature_ex_loss.backward(retain_graph=True)
 
-            feature_extractor_optimizer.step()
-
-            # Update joint classifier
-            # torch.autograd.set_detect_anomaly(True)
+            # Joint classifier loss
             joint_classifier_optimizer.zero_grad()
-            
             joint_loss = loss_module(pred_joint, t.squeeze())
             joint_loss.backward()
-            joint_classifier_optimizer.step()
 
+            # Update the classifier and feature extractor
+            joint_classifier_optimizer.step()
+            feature_extractor_optimizer.step()
+            
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
 
