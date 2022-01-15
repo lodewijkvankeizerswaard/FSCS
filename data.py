@@ -96,13 +96,13 @@ class AdultDataset(data.Dataset):
             table[column] /= v
         return table
 
-    def datapoint_size(self) -> int:
+    def datapoint_shape(self) -> torch.Tensor:
         """Return the amount of elements in each x value
 
         Returns:
             int: the amount of elements in x
         """
-        return len(self[0][0])
+        return self[0][0].shape
 
     def nr_attr_values(self) -> int:
         """Returns the number of possible values for the attribute of this dataset.
