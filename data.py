@@ -105,6 +105,14 @@ class AdultDataset(data.Dataset):
         """
         return len(self[0][0])
 
+    def nr_attr_values(self) -> int:
+        """Returns the number of possible values for the attribute of this dataset.
+
+        Returns:
+            int: the number of attributes
+        """
+        return len(ADULT_ATTRIBUTE['values'])
+
     def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
         return len(self._table)
