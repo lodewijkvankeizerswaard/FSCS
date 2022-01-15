@@ -27,7 +27,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int, 
-                epochs: int, checkpoint_name: str, device: torch.device):
+                epochs: int, checkpoint_name: str, device: torch.device, progress_bar: bool):
     """
     Trains a given model architecture for the specified hyperparameters.
 
@@ -41,12 +41,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
         device: Device to use for training.
     Returns:
         model: Model that has performed best on the validation set.
-
-    TODO:
-    Implement the training of the model with the specified hyperparameters
-    Save the best model to disk so you can load it later.
     """
-
     writer = SummaryWriter()
 
     # Load the datasets
@@ -69,11 +64,11 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     best_accuracy = 0
-    for epoch in tqdm(range(epochs)):
+    for epoch in tqdm(range(epochs), position=0, desc="epoch", disable=progress_bar):
 
         # Group specific training
         group_correct, group_total = 0, 0
-        for x, t, d in tqdm(train_loader):
+        for x, t, d in tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar):
             x = x.to(device)
             t = t.to(device)
             d = d.to(device)
@@ -92,7 +87,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
-        for x, t, d in tqdm(train_loader):
+        for x, t, d in tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar):
             x = x.to(device)
             t = t.to(device)
             d = d.to(device)
@@ -204,7 +199,7 @@ def test_model(model, dataset, batch_size, device, seed):
     
     return test_result
 
-def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
+def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -216,17 +211,9 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
     Returns:
         test_results: Dictionary containing an overview of the accuracies achieved on the different
                       corruption functions and the plain test set.
-
-    TODO:
-    Load model according to the model name.
-    Train the model (recommendation: check if you already have a saved model. If so, skip training and load it)
-    Test the model using the test_model function.
-    Save the results to disk.
     """
 
-    device = torch.device(
-        "cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-    # device = torch.device("cpu")
+    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
@@ -235,7 +222,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
         model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
-                            checkpoint_name, device)
+                            checkpoint_name, device, progress_bar)
     test_results = test_model(model, batch_size, dataset, device, seed)
     return test_results
 
@@ -258,6 +245,10 @@ if __name__ == '__main__':
                         help='Max number of epochs')
     parser.add_argument('--seed', default=42, type=int,
                         help='Seed to use for reproducing results')
+
+    # Other arguments
+    parser.add_argument('--progress_bar', action="store_false",
+                        help="Turn progress bar on")
 
     args = parser.parse_args()
     kwargs = vars(args)
