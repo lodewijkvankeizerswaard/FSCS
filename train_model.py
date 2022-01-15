@@ -112,8 +112,8 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     return model
 
 def num_correct_predictions(predictions, targets):
-    predictions = (predictions > 0.5)
-    count = (predictions == targets).sum()
+    predictions = (predictions > 0.5).long()
+    count = (predictions == targets.squeeze()).sum()
     return count.item()
 
 def evaluate_model(model, data_loader, device):
