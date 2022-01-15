@@ -26,40 +26,6 @@ def set_seed(seed: int):
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
 
-def generate_random_attributes(attributes):
-    idx = torch.randperm(attributes.shape[0])
-    return attributes[idx].view(attributes.size())
-
-def calculate_overall_loss(target: torch.Tensor, joint_y: torch.Tensor, group_specific_y: torch.Tensor, 
-                            group_agnostic_y: torch.Tensor, loss_module):
-    """
-    Calculates Regularized Loss Function
-    """
-    group_specific_loss = loss_module(group_specific_y, target)
-    group_agnostic_loss = loss_module(group_agnostic_y, target)
-    joint_loss = loss_module(joint_y, target)
-
-    overall_loss = joint_loss + LAMBDA * (group_specific_loss - group_agnostic_loss)
-    return overall_loss
-
-def train_epoch(model, optimizer, train_loader, loss_module, device):
-    for modality, target, attributes in tqdm(train_loader):
-        optimizer.zero_grad()
-        target = torch.squeeze(target.to(device))
-
-        random_attribute = generate_random_attributes(attributes)
-
-        joint_y, group_spec_y, group_agno_y = model.forward(
-                modality.to(device),
-                attributes.to(device),
-                random_attribute.to(device))
-
-        overall_loss = calculate_overall_loss(target, joint_y, group_spec_y, group_agno_y, loss_module)
-
-        overall_loss.backward()
-        optimizer.step()
-
-
 def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int, 
                 epochs: int, checkpoint_name: str, device: str):
     """
@@ -139,10 +105,6 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             joint_loss.backward()
             joint_classifier_optimizer.step()
         
-        # if train_accuracy > best_accuracy:
-        #     best_accuracy = train_accuracy
-        #     torch.save(model.state_dict(), "models/" + checkpoint_name)
-
     # Load best model and return it.
     model.load_state_dict(torch.load("models/" + checkpoint_name))
     torch.save(model.state_dict(), "models/finished_" + checkpoint_name)
