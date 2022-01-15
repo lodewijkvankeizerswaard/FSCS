@@ -191,7 +191,7 @@ def test_model(model, dataset, batch_size, device, seed):
     set_seed(seed)
     test_set = get_test_set(dataset)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
-                                                shuffle=True, num_workers=2)
+                                                shuffle=True, num_workers=4)
     test_result = evaluate_model(model, test_loader, device)
     
     return test_result
