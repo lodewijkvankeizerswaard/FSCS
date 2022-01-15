@@ -27,7 +27,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int, 
-                epochs: int, checkpoint_name: str, device: str):
+                epochs: int, checkpoint_name: str, device: torch.device):
     """
     Trains a given model architecture for the specified hyperparameters.
 
@@ -46,6 +46,8 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     Implement the training of the model with the specified hyperparameters
     Save the best model to disk so you can load it later.
     """
+
+    writer = SummaryWriter()
 
     # Load the datasets
     train_set, val_set = get_train_validation_set(dataset)
@@ -70,7 +72,11 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     for epoch in tqdm(range(epochs)):
 
         # Group specific training
+        group_correct, group_total = 0, 0
         for x, t, d in tqdm(train_loader):
+            x = x.to(device)
+            t = t.to(device)
+            d = d.to(device)
             group_specific_optimizer.zero_grad()
             pred_group_spe = model.group_forward(x, d)
 
@@ -79,8 +85,17 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
             group_specific_optimizer.step()
 
+            group_correct += num_correct_predictions(pred_group_spe, t)
+            group_total += len(x)
+
+        writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
+
         # Feature extractor and joint classifier trainer
+        joint_correct, joint_total = 0, 0
         for x, t, d in tqdm(train_loader):
+            x = x.to(device)
+            t = t.to(device)
+            d = d.to(device)
             # Sample d values for the group agnostic model
             d_tilde = train_loader.dataset.sample_d(d.shape)
 
@@ -98,12 +113,19 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             feature_extractor_optimizer.step()
 
             # Update joint classifier
-            torch.autograd.set_detect_anomaly(True)
+            # torch.autograd.set_detect_anomaly(True)
             joint_classifier_optimizer.zero_grad()
             
             joint_loss = loss_module(pred_joint, t.squeeze())
             joint_loss.backward()
             joint_classifier_optimizer.step()
+
+            joint_correct += num_correct_predictions(pred_joint, t)
+            joint_total += len(x)
+
+        writer.add_scalar("train/joint_acc", joint_correct / joint_total, epoch)
+    
+    writer.close()
         
     # Load best model and return it.
     model.load_state_dict(torch.load("models/" + checkpoint_name))
@@ -204,7 +226,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
 
     device = torch.device(
         "cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-    device = torch.device("cpu")
+    # device = torch.device("cpu")
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
