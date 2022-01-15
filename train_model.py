@@ -106,7 +106,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
         # Group specific training
         for x, t, d in tqdm(train_loader):
             group_specific_optimizer.zero_grad()
-            pred_group_spe = model.group_specific_forward(x, d)
+            pred_group_spe = model.group_forward(x, d)
 
             group_specific_loss = loss_module(pred_group_spe, t.squeeze())
             group_specific_loss.backward()
@@ -119,8 +119,8 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             d_tilde = train_loader.dataset.sample_d(d.shape)
 
             # Get model predictions
-            pred_group_spe = model.group_specific_forward(x, d)
-            pred_group_agn = model.group_agnostic_forward(x, d_tilde)
+            pred_group_spe = model.group_forward(x, d)
+            pred_group_agn = model.group_forward(x, d_tilde)
             pred_joint = model.joint_forward(x)
 
             # Update feature extractor

@@ -72,20 +72,7 @@ class FairClassifier(nn.Module):
         _, counts = torch.unique(d, return_counts=True)
         return sorter, torch.split(torch.squeeze(x[sorter, :]), counts.tolist())
 
-    def group_specific_forward(self, x: torch.Tensor, d: torch.Tensor):
-        """ The forward pass of the group specific models. """
-
-        features = self.featurizer(x).squeeze()
-
-        # Sort the inputs on the value of d
-        group_indices, group_splits = self.split(features, d)
-
-        group_pred = torch.zeros(features.shape[0], device=self.device())
-        group_pred[group_indices] = torch.cat([self.group_specific_models[i](group_split) for i, group_split in enumerate(group_splits)])
-
-        return torch.sigmoid(group_pred)
-
-    def group_agnostic_forward(self, x: torch.Tensor, d: torch.Tensor):
+    def group_forward(self, x: torch.Tensor, d: torch.Tensor):
         """ The forward pass of the group specific models. """
 
         features = self.featurizer(x).squeeze()
