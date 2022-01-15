@@ -10,7 +10,7 @@ import argparse
 
 from data import ADULT_ATTRIBUTE, get_train_validation_set, get_test_set
 from model import FairClassifier
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 LAMBDA = 0.7 
 
