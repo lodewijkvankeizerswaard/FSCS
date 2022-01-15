@@ -90,16 +90,14 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     # Initialize the optimizer and loss function
     group_specific_params = [param for gsm in model.group_specific_models for param in gsm.parameters()]
-    join_classifier_params = []
-    join_classifier_params.extend(model.featurizer.parameters())
-    join_classifier_params.extend(model.joint_classifier.parameters())
+    feature_extractor_params = model.featurizer.parameters()
+    joint_classifier_params = model.joint_classifier.parameters()
 
     group_specific_optimizer = torch.optim.SGD(group_specific_params, lr=lr)
-    joint_classifier_optimizer = torch.optim.SGD(join_classifier_params, lr=lr)
+    feature_extractor_optimizer = torch.optim.SGD(feature_extractor_params, lr=lr)
+    joint_classifier_optimizer = torch.optim.SGD(joint_classifier_params, lr=lr)
 
     loss_module = nn.BCELoss()
-
-    print(model)
 
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     best_accuracy = 0
@@ -108,23 +106,34 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
         # Group specific training
         for x, t, d in tqdm(train_loader):
             group_specific_optimizer.zero_grad()
-            pred_group = model.forward_group(x, d)
+            pred_group_spe = model.group_specific_forward(x, d)
 
-            group_specific_loss = loss_module(pred_group, t.squeeze())
+            group_specific_loss = loss_module(pred_group_spe, t.squeeze())
             group_specific_loss.backward()
 
             group_specific_optimizer.step()
 
         # Feature extractor and joint classifier trainer
-
         for x, t, d in tqdm(train_loader):
+            pred_group_spe = model.group_specific_forward(x, d)
+            pred_group_agn = model.group_agnostic_forward(x, d)
+            pred_joint = model.joint_forward(x)
+
+            # Update feature extractor
+            feature_extractor_optimizer.zero_grad()
+            feature_ex_loss = loss_module(pred_joint, t.squeeze()) \
+                                + LAMBDA * (loss_module(pred_group_spe, t.squeeze()) - loss_module(pred_group_agn, t.squeeze()))
+            feature_ex_loss.backward(retain_graph=True)
+
+            feature_extractor_optimizer.step()
+
+            # Update joint classifier
+            torch.autograd.set_detect_anomaly(True)
             joint_classifier_optimizer.zero_grad()
-
-
-
-        
-        # train_epoch(model, group_specific_optimizer, train_loader, loss_module, device)
-        # train_epoch(model, joint_classifier_optimizer, train_loader, loss_module, device)
+            
+            joint_loss = loss_module(pred_joint, t.squeeze())
+            joint_loss.backward()
+            joint_classifier_optimizer.step()
         
         # if train_accuracy > best_accuracy:
         #     best_accuracy = train_accuracy
