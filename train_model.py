@@ -115,8 +115,12 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
         # Feature extractor and joint classifier trainer
         for x, t, d in tqdm(train_loader):
+            # Sample d values for the group agnostic model
+            d_tilde = train_loader.dataset.sample_d(d.shape)
+
+            # Get model predictions
             pred_group_spe = model.group_specific_forward(x, d)
-            pred_group_agn = model.group_agnostic_forward(x, d)
+            pred_group_agn = model.group_agnostic_forward(x, d_tilde)
             pred_joint = model.joint_forward(x)
 
             # Update feature extractor
