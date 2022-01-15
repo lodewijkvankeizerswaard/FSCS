@@ -15,8 +15,8 @@ from torchvision import transforms
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
 ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
-# ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
-ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
+ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
+# ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
