@@ -53,7 +53,7 @@ def get_model(dataset_name: str, pretrained: bool=True):
 
 
 class FairClassifier(nn.Module):
-    def __init__(self, input_model: str, group_values: int = 2):
+    def __init__(self, input_model: str, nr_attr_values: int = 2):
         """
         FairClassifier Model
         """
@@ -61,7 +61,7 @@ class FairClassifier(nn.Module):
         in_features, self.featurizer = get_model(input_model)
 
         # Fully Connected models for binary classes
-        self.group_specific_models = nn.ModuleList([nn.Linear(in_features, 1) for key in range(group_values)])
+        self.group_specific_models = nn.ModuleList([nn.Linear(in_features, 1) for key in range(nr_attr_values)])
 
         # Join Classifier T
         self.joint_classifier = nn.Linear(in_features, 1)

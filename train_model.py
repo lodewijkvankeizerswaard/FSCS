@@ -8,7 +8,7 @@ from torch.nn.modules import loss
 from tqdm import tqdm
 import argparse
 
-from data import get_train_validation_set, get_test_set
+from data import ADULT_ATTRIBUTE, get_train_validation_set, get_test_set
 from model import FairClassifier
 # from torch.utils.tensorboard import SummaryWriter
 
@@ -233,7 +233,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int):
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
-    model = FairClassifier(dataset).to(device)
+    model = FairClassifier(dataset, nr_attr_values=len(ADULT_ATTRIBUTE['values'])).to(device)
     if os.path.exists("models/finished_" + checkpoint_name):
         model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
     else:
