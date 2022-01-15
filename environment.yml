@@ -14,7 +14,7 @@ dependencies:
   - torchvision=0.11.0
   - tqdm=4.62.3
   - kaggle=1.5.12
-  - setuptools=59.5.0
+  - setuptools=59.5.0 # <https://github.com/pytorch/pytorch/pull/69904>
   - pip:
     - tensorboard
     - pytorch-transformers==1.2.0
