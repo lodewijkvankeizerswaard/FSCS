@@ -7,7 +7,7 @@ import torchvision.models as models
 
 import numpy as np
 
-ADULT_DATASET_FEATURE_SIZE = 103
+ADULT_DATASET_FEATURE_SIZE = 105
 NODE_SIZE = 80
 
 
