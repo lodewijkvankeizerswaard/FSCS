@@ -83,7 +83,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             group_correct += num_correct_predictions(pred_group_spe, t)
             group_total += len(x)
 
-        writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
+        writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
@@ -115,7 +115,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
 
-        writer.add_scalar("train/joint_acc", joint_correct / joint_total, epoch)
+        writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
     
     writer.close()
         
