@@ -1,7 +1,6 @@
 import os
 import torch
 import pandas as pd
-from collections import Counter
 import torch.utils.data as data
 import zipfile
 import gdown
@@ -54,7 +53,7 @@ class AdultDataset(data.Dataset):
         Returns:
             torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
         """
-        counts = Counter(table[ADULT_ATTRIBUTE['column']])
+        counts = table[ADULT_ATTRIBUTE['column']].value_counts()
         ratios = torch.Tensor([counts[attr_val] for attr_val in ADULT_ATTRIBUTE['values']])
         return ratios / sum(ratios)
 
