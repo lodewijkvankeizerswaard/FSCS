@@ -11,11 +11,14 @@ from torchvision import transforms
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
 
+# Dataset attribute selection. Please make sure that the column name and column values are correct.
+CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
+ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
+# ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
+
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
 ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
-ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
-# ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
@@ -40,7 +43,7 @@ class AdultDataset(data.Dataset):
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
-        
+
         self._table = table
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
@@ -146,10 +149,52 @@ class CheXpertDataset(data.Dataset):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         
+        # Read the csv file, and replace all 0's and -1's with nan (to make flags binary)
         self._filename = "train.csv" if split == "train" else "valid.csv"
-        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
+        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename), na_values=[0,-1])
+        self._table.fillna(0, inplace=True)
 
-        self.transfrom = transforms.ToTensor()
+        # Find the ratio for the attribute to be able to sample from this distribution
+        probs = self._attr_ratio(self._table)
+        self._attr_dist = torch.distributions.Categorical(probs=probs)
+
+        self._transfrom = transforms.ToTensor()
+
+    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+        """Finds the ratio in which the attribute occurs in the data set, such that we can later
+        sample from this distribution. 
+
+        Args:
+            table (pd.DataFrame): the table from which to obtain the attribute ratio.
+
+        Returns:
+            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+        """
+        counts = table[CHEXPERT_ATTRIBUTE['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in CHEXPERT_ATTRIBUTE['values']])
+        return ratios / sum(ratios)
+
+    def sample_d(self, size: tuple) -> torch.Tensor:
+        return self._attr_dist.sample(size)
+
+    def datapoint_shape(self) -> torch.Tensor:
+        """Return the amount of elements in each x value
+
+        Returns:
+            int: the amount of elements in x
+        """
+        return self[0][0].shape
+
+    def nr_attr_values(self) -> int:
+        """Returns the number of possible values for the attribute of this dataset.
+
+        Returns:
+            int: the number of attributes
+        """
+        return len(CHEXPERT_ATTRIBUTE['values'])
+    
+    def __len__(self):
+        return len(self._table)
 
     def __getitem__(self, i):
         # Alias the dataframe
@@ -159,13 +204,10 @@ class CheXpertDataset(data.Dataset):
         filename = df.iloc[i]['Path']
         img = Image.open(os.path.join(self._datapath, filename))
 
-        x = self.transfrom(img)[:,:224,:224].repeat(3,1,1)
+        x = self._transfrom(img)[:,:224,:224].repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
-
-    def __len__(self):
-        return len(self._table)
 
 def get_train_validation_set(dataset:str, root="data/"):
     # TODO add docstring
