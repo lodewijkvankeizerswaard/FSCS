@@ -128,7 +128,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     writer.close()
         
     # Load best model and return it.
-    model.load_state_dict(torch.load("models/" + checkpoint_name))
+    # model.load_state_dict(torch.load("models/" + checkpoint_name))
     torch.save(model.state_dict(), "models/finished_" + checkpoint_name)
 
     return model
