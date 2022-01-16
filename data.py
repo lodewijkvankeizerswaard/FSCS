@@ -31,7 +31,7 @@ class AdultDataset(data.Dataset):
 
         # Read data and skip first line of test data
         self._filename = "adult.test" if split == "test" else "adult.data"
-        table = pd.read_csv(os.path.join(datapath,+ self._filename), \
+        table = pd.read_csv(os.path.join(datapath, self._filename), \
             names=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',\
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
