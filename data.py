@@ -228,8 +228,7 @@ def get_train_validation_set(dataset:str, root="data/"):
         train = CheXpertDataset(root, split="train")
         val = None
     else:
-        pass
-
+        raise ValueError("This dataset is not implemented") 
     return train, val
 
 def get_test_set(dataset:str, root="data/"):
@@ -237,9 +236,11 @@ def get_test_set(dataset:str, root="data/"):
     # TODO add civil comments, chexpert, celeba
     if dataset == "adult":
         test = AdultDataset(root, split="test")
-        return test
+    elif dataset == "chexpert":
+        test = CheXpertDataset(root, split="test")
     else:
-        pass
+        raise ValueError("This dataset is not implemented")
+    return test
 
 # class CelebA(data.Dataset):
 #     def __init__(self, root, split = "train"):
@@ -278,9 +279,10 @@ def preprocess_celeba(img_dir = "data\celeba\img_align_celeba\img_align_celeba")
     print(img_path)
 
 
-# if __name__ == "__main__":
-#     dummy = AdultDataset('data', split="train")
-#     dummy2 = AdultDataset('data', split='test')
-#     print(dummy[3])
-#     print(dummy.sample_d((10,10)))
-#     print(dummy.datapoint_size())
+if __name__ == "__main__":
+    dummy = AdultDataset('data', split="train")
+    dummy2 = AdultDataset('data', split='test')
+    print(dummy[3])
+    print(dummy.sample_d((10,10)))
+    print(dummy.datapoint_shape())
+    print(dummy2.datapoint_shape())
