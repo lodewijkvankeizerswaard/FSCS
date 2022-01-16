@@ -89,7 +89,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
         joint_correct, joint_total = 0, 0
         for x, t, d in tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar):
             x = x.to(device)
-            t = t.to(device)
+            t = t.to(device).squeeze()
             d = d.to(device)
             # Sample d values for the group agnostic model
             d_tilde = train_loader.dataset.sample_d(d.shape)
@@ -97,16 +97,17 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             # Get model predictions
             pred_joint, pred_group_spe, pred_group_agn = model.forward(x, d, d_tilde)
 
-            # Feature extractor loss
-            feature_extractor_optimizer.zero_grad()
-            feature_ex_loss = loss_module(pred_joint, t.squeeze()) \
-                                + LAMBDA * (loss_module(pred_group_spe, t.squeeze()) - loss_module(pred_group_agn, t.squeeze()))
-            feature_ex_loss.backward(retain_graph=True)
+            # Calculate L_0 and L_R
+            L_0 = loss_module(pred_joint, t)
+            L_R = loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t)
 
-            # Joint classifier loss
+            # Add L_R to the feature extractor gradients (but not to the joint classifier)
+            feature_extractor_optimizer.zero_grad()
+            L_R.backward(retain_graph=True)
             joint_classifier_optimizer.zero_grad()
-            joint_loss = loss_module(pred_joint, t.squeeze())
-            joint_loss.backward()
+
+            # Add L_0 to both the feature extractor and joint classifier gradients
+            L_0.backward()
 
             # Update the classifier and feature extractor
             joint_classifier_optimizer.step()
