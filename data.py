@@ -26,12 +26,12 @@ class AdultDataset(data.Dataset):
     # TODO add data bias 
     # TODO improve comments
     def __init__(self, root, split="train"):
-        datapath = root + "/adult"
+        datapath = os.path.join(root, "adult")
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
         # Read data and skip first line of test data
         self._filename = "adult.test" if split == "test" else "adult.data"
-        table = pd.read_csv(datapath + "/" + self._filename, \
+        table = pd.read_csv(os.path.join(datapath,+ self._filename), \
             names=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',\
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
