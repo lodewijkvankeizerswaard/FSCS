@@ -46,7 +46,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     # Load the datasets
     train_set, val_set = get_train_validation_set(dataset, root=dataset_root)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
-                                               shuffle=True, num_workers=4, drop_last=True)
+                                               shuffle=True, num_workers=3, drop_last=True)
     # validation_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
     #                                                 shuffle=True, num_workers=2)
 
@@ -147,7 +147,7 @@ def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.de
     set_seed(seed)
     test_set = get_test_set(dataset, root=dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
-                                                shuffle=True, num_workers=4)
+                                                shuffle=True, num_workers=3)
 
     num_correct = 0
     total_samples = 0 
