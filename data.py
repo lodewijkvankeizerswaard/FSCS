@@ -36,6 +36,9 @@ class AdultDataset(data.Dataset):
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
 
+        # Remove dots from labels (in test data)
+        table['salary'] = table['salary'].str.replace('.', '', regex=False)
+
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
 

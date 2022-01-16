@@ -217,7 +217,7 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progr
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
                             checkpoint_name, device, progress_bar)
-    test_results = test_model(model, batch_size, dataset, device, seed)
+    test_results = test_model(model, dataset, batch_size, device, seed)
     return test_results
 
 if __name__ == '__main__':
