@@ -47,7 +47,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     # Load the datasets
     train_set, val_set = get_train_validation_set(dataset)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
-                                               shuffle=True, num_workers=2, drop_last=True)
+                                               shuffle=True, num_workers=4, drop_last=True)
     # validation_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
     #                                                 shuffle=True, num_workers=2)
 
@@ -68,22 +68,22 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
         # Group specific training
         group_correct, group_total = 0, 0
-        for x, t, d in tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar):
-            x = x.to(device)
-            t = t.to(device)
-            d = d.to(device)
-            group_specific_optimizer.zero_grad()
-            pred_group_spe = model.group_forward(x, d)
+        # for x, t, d in tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar):
+        #     x = x.to(device)
+        #     t = t.to(device)
+        #     d = d.to(device)
+        #     group_specific_optimizer.zero_grad()
+        #     pred_group_spe = model.group_forward(x, d)
 
-            group_specific_loss = loss_module(pred_group_spe, t.squeeze())
-            group_specific_loss.backward()
+        #     group_specific_loss = loss_module(pred_group_spe, t.squeeze())
+        #     group_specific_loss.backward()
 
-            group_specific_optimizer.step()
+        #     group_specific_optimizer.step()
 
-            group_correct += num_correct_predictions(pred_group_spe, t)
-            group_total += len(x)
+        #     group_correct += num_correct_predictions(pred_group_spe, t)
+        #     group_total += len(x)
 
-        writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
+        # writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
