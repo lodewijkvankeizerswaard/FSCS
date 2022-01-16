@@ -63,7 +63,8 @@ fi
 # CELEBA DATASET #
 ##################
 CELEB_URL="'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'"
-if [[ -d celeba/img_align_celeba ]]; then
+CELEB_ANNO_URL = "'https://drive.google.com/uc?id=0B7EVK8r0v71pblRyaVFSWGxPY0U'"
+if [[ -d celeba/img_align_celeba ]] && [[-d celeba/anno]]; then
     echo "CelebA dataset found!"
 else
     [[ ! -d "celeba" ]] &&  mkdir celeba
@@ -71,4 +72,7 @@ else
     [[ ! -f "img_align_celeba.zip" ]] && python -c "import gdown; gdown.download($CELEB_URL, '.')"
     unzip -u img_align_celeba.zip
     rm img_align_celeba.zip
+    cd .. 
+    [[ ! -d "anno"]] && mkdir anno 
+    [[ ! -f "list_atr_celeba.txt" ]] && python -c "import gdown; gdown.download($CELEB_ANNO_URL, '.')"
 fi
