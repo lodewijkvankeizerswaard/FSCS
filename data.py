@@ -42,6 +42,10 @@ class AdultDataset(data.Dataset):
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
 
+        # Add missing country to test data
+        if split == "test":
+            table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
+
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
 
