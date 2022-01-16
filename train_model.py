@@ -1,4 +1,3 @@
-from posixpath import join
 import torch
 from torch import nn
 import numpy as np
@@ -27,7 +26,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int, 
-                epochs: int, checkpoint_name: str, device: torch.device, progress_bar: bool):
+                epochs: int, checkpoint_name: str, device: torch.device, dataset_root:str, progress_bar: bool):
     """
     Trains a given model architecture for the specified hyperparameters.
 
@@ -45,7 +44,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     writer = SummaryWriter()
 
     # Load the datasets
-    train_set, val_set = get_train_validation_set(dataset)
+    train_set, val_set = get_train_validation_set(dataset, root=dataset_root)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
                                                shuffle=True, num_workers=4, drop_last=True)
     # validation_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
@@ -126,12 +125,12 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
 
     return model
 
-def num_correct_predictions(predictions, targets):
+def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) -> int:
     predictions = (predictions > 0.5).long()
     count = (predictions == targets.squeeze()).sum()
     return count.item()
 
-def test_model(model, dataset, batch_size, device, seed, progress_bar):
+def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.device, seed: int, dataset_root: str, progress_bar: bool):
     """
     Tests a trained model on the test set.
 
@@ -146,7 +145,7 @@ def test_model(model, dataset, batch_size, device, seed, progress_bar):
     """
 
     set_seed(seed)
-    test_set = get_test_set(dataset)
+    test_set = get_test_set(dataset, root=dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
                                                 shuffle=True, num_workers=4)
 
@@ -166,7 +165,7 @@ def test_model(model, dataset, batch_size, device, seed, progress_bar):
     
     return avg_accuracy
 
-def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progress_bar: bool):
+def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -190,8 +189,8 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progr
         model.load_state_dict(torch.load(checkpont_path))
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
-                            checkpoint_name, device, progress_bar)
-    test_results = test_model(model, dataset, batch_size, device, seed, progress_bar)
+                            checkpoint_name, device, dataset_root, progress_bar)
+    test_results = test_model(model, dataset, batch_size, device, seed, dataset_root, progress_bar)
     print("Accuracy on the test set:", test_results)
     return test_results
 
@@ -205,19 +204,21 @@ if __name__ == '__main__':
     
     # Optimizer hyperparameters
     parser.add_argument('--lr', default=0.01, type=float,
-                        help='Learning rate to use')
+                        help='Learning rate to use.')
     parser.add_argument('--batch_size', default=32, type=int,
-                        help='Minibatch size')
+                        help='Minibatch size.')
 
     # Other hyperparameters
     parser.add_argument('--epochs', default=20, type=int,
-                        help='Max number of epochs')
+                        help='Max number of epochs.')
     parser.add_argument('--seed', default=42, type=int,
-                        help='Seed to use for reproducing results')
+                        help='Seed to use for reproducing results.')
 
     # Other arguments
+    parser.add_argument('--dataset_root', default="data", type=str,
+                        help="the root of the data folders.")
     parser.add_argument('--progress_bar', action="store_false",
-                        help="Turn progress bar on")
+                        help="Turn progress bar on.")
 
     args = parser.parse_args()
     kwargs = vars(args)
