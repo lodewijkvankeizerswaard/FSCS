@@ -131,47 +131,9 @@ def num_correct_predictions(predictions, targets):
     count = (predictions == targets.squeeze()).sum()
     return count.item()
 
-def evaluate_model(model, data_loader, device):
+def test_model(model, dataset, batch_size, device, seed, progress_bar):
     """
-    Evaluates a trained model on a given dataset.
-
-    Args:
-        model: Model architecture to evaluate.
-        data_loader: The data loader of the dataset to evaluate on.
-        device: Device to use for training.
-    Returns:
-        accuracy: The accuracy on the dataset.
-
-    TODO:
-    Implement the evaluation of the model on the dataset.
-    Remember to set the model in evaluation mode and back to training mode in the training loop.
-    """
-
-    num_correct = 0
-    total_samples = 0
-
-    with torch.no_grad():
-        for modality, target, attributes in data_loader:
-            target = torch.squeeze(target.to(device))
-
-            random_attribute = generate_random_attributes(attributes)
-
-            joint_y = model.forward(
-                modality.to(device),
-                attributes.to(device),
-                random_attribute.to(device))
-            
-            num_correct += num_correct_predictions(joint_y, target)
-            total_samples += len(modality)
-
-    avg_accuracy = num_correct / total_samples
-
-    return avg_accuracy
-
-
-def test_model(model, dataset, batch_size, device, seed):
-    """
-    Tests a trained model on the test set with all corruption functions.
+    Tests a trained model on the test set.
 
     Args:
         model: Model architecture to test.
@@ -180,17 +142,29 @@ def test_model(model, dataset, batch_size, device, seed):
         device: Device to use for training.
         seed: The seed to set before testing to ensure a reproducible test.
     Returns:
-        test_results: Dictionary containing an overview of the accuracies achieved on the different
-                      corruption functions and the plain test set.
+        test_results: The average accuracy on the test set (independent of the attribute).
     """
 
     set_seed(seed)
     test_set = get_test_set(dataset)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
                                                 shuffle=True, num_workers=4)
-    test_result = evaluate_model(model, test_loader, device)
+
+    num_correct = 0
+    total_samples = 0 
+    with torch.no_grad():
+        for x, t, _ in tqdm(test_loader, desc="test", disable=progress_bar):
+            x = x.to(device)
+            t = t.to(device).squeeze()
+
+            pred_joint, _, _ = model.forward(x)
+            
+            num_correct += num_correct_predictions(pred_joint, t)
+            total_samples += len(x)
+
+    avg_accuracy = num_correct / total_samples
     
-    return test_result
+    return avg_accuracy
 
 def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progress_bar: bool):
     """
@@ -217,7 +191,8 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progr
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
                             checkpoint_name, device, progress_bar)
-    test_results = test_model(model, dataset, batch_size, device, seed)
+    test_results = test_model(model, dataset, batch_size, device, seed, progress_bar)
+    print("Accuracy on the test set:", test_results)
     return test_results
 
 if __name__ == '__main__':
