@@ -122,7 +122,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
         
     # Load best model and return it.
     # model.load_state_dict(torch.load("models/" + checkpoint_name))
-    torch.save(model.state_dict(), "models/finished_" + checkpoint_name)
+    torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
 
     return model
 
@@ -182,11 +182,6 @@ def test_model(model, dataset, batch_size, device, seed):
     Returns:
         test_results: Dictionary containing an overview of the accuracies achieved on the different
                       corruption functions and the plain test set.
-
-    TODO:
-    Evaluate the model on the plain test set. Make use of the evaluate_model function.
-    For each corruption function and severity, repeat the test. 
-    Summarize the results in a dictionary (the structure inside the dict is up to you.)
     """
 
     set_seed(seed)
@@ -215,9 +210,10 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, progr
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
+    checkpont_path = os.path.join("models", checkpoint_name)
     model = FairClassifier(dataset, nr_attr_values=len(ADULT_ATTRIBUTE['values'])).to(device)
-    if os.path.exists("models/finished_" + checkpoint_name):
-        model.load_state_dict(torch.load("models/finished_" + checkpoint_name))
+    if os.path.exists(checkpont_path):
+        model.load_state_dict(torch.load(checkpont_path))
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
                             checkpoint_name, device, progress_bar)
