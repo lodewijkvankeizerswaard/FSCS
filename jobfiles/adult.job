@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_shared_course
+#SBATCH --gres=gpu:0
+#SBATCH --job-name=InstallEnvironment
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=3
+#SBATCH --time=04:00:00
+#SBATCH --mem=32000M
+#SBATCH --output=slurm_output_ADULT_%A.out
+
+DATASET="adult"
+
+module purge
+module load 2021
+module load Anaconda3/2021.05
+
+source activate FSCS
+
+# Copy dataset
+cp -r data/$DATASET $TMPDIR/$DATASET
+
+srun python -u train_model.py --dataset $DATASET --lr 0.001 --batch_size 32 --epochs 20 --dataset_root $TMPDIR
