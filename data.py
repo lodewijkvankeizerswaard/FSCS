@@ -1,6 +1,7 @@
 import os
 import torch
 import pandas as pd
+import numpy as np
 import torch.utils.data as data
 import zipfile
 import gdown
@@ -28,11 +29,12 @@ class AdultDataset(data.Dataset):
         datapath = root + "/adult"
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
+        # Read data and skip first line of test data
         self._filename = "adult.test" if split == "test" else "adult.data"
         table = pd.read_csv(datapath + "/" + self._filename, \
             names=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',\
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
-                   'hours-per-week', 'native-country', 'salary'])[1:]
+                   'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
 
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
@@ -269,15 +271,9 @@ def preprocess_celeba(img_dir = "data\celeba\img_align_celeba\img_align_celeba")
     print(img_path)
 
 
-
-def get_civil(root="data"):
-    pass
-
-def get_chexpert(root="data"):
-    pass
-
 # if __name__ == "__main__":
-#     dummy = AdultDataset('data')
+#     dummy = AdultDataset('data', split="train")
+#     dummy2 = AdultDataset('data', split='test')
 #     print(dummy[3])
 #     print(dummy.sample_d((10,10)))
 #     print(dummy.datapoint_size())
