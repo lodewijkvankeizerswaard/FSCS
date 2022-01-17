@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 import torchvision.models as models
 
-from featurizers import get_model
+from featurizers import get_featurizer
 
 import numpy as np
 
