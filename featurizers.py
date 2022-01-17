@@ -6,7 +6,7 @@ ADULT_DATASET_FEATURE_SIZE = 105
 NODE_SIZE = 80
 
 
-def get_model(dataset_name: str):
+def get_featurizer(dataset_name: str):
     """
     Returns the model architecture for the provided dataset_name. 
     """
