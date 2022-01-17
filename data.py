@@ -16,6 +16,7 @@ from torchvision import transforms
 CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
 ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
 CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
+CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
 # ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 # Editing these global variables has a very high chance of breaking the data
@@ -323,6 +324,65 @@ class CelebADataset(data.Dataset):
         t = torch.Tensor([int(df.iloc[i]['Blond_Hair'] == 1)])
         d = torch.Tensor([int(df.iloc[i]['Male'] == 1)])
         return x, t, d
+
+class CivilDataset(data.Dataset):
+    def __init__(self, root, split="train"):
+        self._datapath = os.path.join(root, "civil")
+        assert os.path.exists(self._datapath), "Civil dataset not found! Did you run 'get_data.sh'?"
+
+        self._filename = "train.csv" if split == "train" else "test.csv"
+        self._table = pd.read_csv(os.path.join(self._datapath), self._filename)
+
+        probs = self._attr_ratio(self._table)
+        self._attr_dist = torch.distributions.Categorical(probs = probs)
+
+        self._transform = transforms.ToTensor()
+
+    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+        """Finds the ratio in which the attribute occurs in the data set, such that we can later
+        sample from this distribution. 
+
+        Args:
+            table (pd.DataFrame): the table from which to obtain the attribute ratio.
+
+        Returns:
+            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+        """
+        counts = table[CIVIL_ATTRIBUTE['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in CIVIL_ATTRIBUTE['values']])
+        return ratios / sum(ratios)
+
+    def sample_d(self, size: tuple) -> torch.Tensor:
+        return self._attr_dist.sample(size)
+
+    def datapoint_shape(self) -> torch.Tensor:
+        """Return the amount of elements in each x value
+
+        Returns:
+            int: the amount of elements in x
+        """
+        return self[0][0].shape
+    
+    def nr_attr_values(self) -> int:
+        """Returns the number of possible values for the attribute of this dataset.
+
+        Returns:
+            int: the number of attributes
+        """
+        return len(CIVIL_ATTRIBUTE['values'])
+
+    def __len__(self):
+        return len(self._table)
+    
+    def __getitem__(self, i):
+        #Alias the dataframe
+        df = self._table
+
+        x = df.iloc[i]['comment_text']
+        t = #TOXICITY???????!!!!!!!!!!!!!
+        d = df.iloc[i]['christian']
+        return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
+
 
 
 
