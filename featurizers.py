@@ -6,7 +6,7 @@ ADULT_DATASET_FEATURE_SIZE = 105
 NODE_SIZE = 80
 
 
-def get_model(dataset_name: str):
+def get_featurizer(dataset_name: str):
     """
     Returns the model architecture for the provided dataset_name. 
     """
@@ -37,6 +37,7 @@ def drop_classification_layer(model):
 
 class AdultFeaturizer(nn.Module):
     def __init__(self):
+        super(AdultFeaturizer, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(ADULT_DATASET_FEATURE_SIZE, NODE_SIZE),
             nn.SELU()
@@ -48,6 +49,7 @@ class AdultFeaturizer(nn.Module):
 
 class CelebAFeaturizer(nn.Module):
     def __init__(self):
+        super(CelebAFeaturizer, self).__init__()
         self.model = models.resnet50(pretrained=True)
 
     def forward(self, x):
@@ -56,6 +58,7 @@ class CelebAFeaturizer(nn.Module):
 
 class CivilCommentsFeaturizer(nn.Module):
     def __init__(self):
+        super(CivilCommentsFeaturizer, self).__init__()
         bert_model = torch.hub.load(
             'huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
 
@@ -71,6 +74,7 @@ class CivilCommentsFeaturizer(nn.Module):
 
 class CheXPertFeaturizer(nn.Module):
     def __init__(self):
+        super(CheXPertFeaturizer, self).__init__()
         model = models.densenet121(pretrained=True)
         model = drop_classification_layer(model)
         self.model = nn.Sequential(model, nn.AdaptiveAvgPool2d((1, 1)))
