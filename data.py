@@ -23,7 +23,6 @@ ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-lo
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
-    # TODO add data bias 
     # TODO improve comments
     def __init__(self, root, split="train"):
         datapath = os.path.join(root, "adult")
@@ -41,11 +40,17 @@ class AdultDataset(data.Dataset):
 
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
-
-        # Add missing country to test data
+        probs = self._attr_ratio(table)
         if split == "test":
+            # Add missing country to test data
             table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
-
+        else:
+            # Introduce bias in the train data
+            where_d_zero = set((table[ADULT_ATTRIBUTE['column']] == ADULT_ATTRIBUTE['values'][0]).index)
+            where_y_one = set((table['salary_ >50K'] == 1).index)
+            bias = list(where_d_zero & where_y_one)[50:]
+            table = table.drop(index=bias)
+        
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
 
