@@ -158,10 +158,10 @@ class CheXpertDataset(data.Dataset):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         
-        # Read the csv file, and replace all 0's and -1's with nan (to make flags binary)
+        # Read the csv file, and remove rows with -1's for the attribute value (to make flags binary)
         self._filename = "train.csv" if split == "train" else "valid.csv"
-        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename), na_values=[0,-1])
-        self._table.fillna(0, inplace=True)
+        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
+        self._table = self._table[ self._table[CHEXPERT_ATTRIBUTE['column']].isin(CHEXPERT_ATTRIBUTE['values']) == True ]
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
@@ -282,7 +282,10 @@ def preprocess_celeba(img_dir = "data\celeba\img_align_celeba\img_align_celeba")
 if __name__ == "__main__":
     dummy = AdultDataset('data', split="train")
     dummy2 = AdultDataset('data', split='test')
-    print(dummy[3])
-    print(dummy.sample_d((10,10)))
-    print(dummy.datapoint_shape())
-    print(dummy2.datapoint_shape())
+    # print(dummy[3])
+    # print(dummy.sample_d((10,10)))
+    # print(dummy.datapoint_shape())
+    # print(dummy2.datapoint_shape())
+
+    ch1 = CheXpertDataset('data', split="train")
+    ch2 = CheXpertDataset('data', split="test")
