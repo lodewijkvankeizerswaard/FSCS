@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 import torchvision.models as models
 
-from featurizers import get_model
+from featurizers import get_featurizer
 
 import numpy as np
 
@@ -15,7 +15,7 @@ class FairClassifier(nn.Module):
         FairClassifier Model
         """
         super(FairClassifier, self).__init__()
-        in_features, self.featurizer = get_model(input_model)
+        in_features, self.featurizer = get_featurizer(input_model)
 
         # Fully Connected models for binary classes
         self.group_specific_models = nn.ModuleList([nn.Linear(in_features, 1) for key in range(nr_attr_values)])

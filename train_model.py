@@ -64,6 +64,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     best_accuracy = 0
     for epoch in tqdm(range(epochs), position=0, desc="epoch", disable=progress_bar):
+        model.train()
 
         # Group specific training
         group_correct, group_total = 0, 0
@@ -152,6 +153,7 @@ def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.de
     num_correct = 0
     total_samples = 0 
     with torch.no_grad():
+        model.eval()
         for x, t, _ in tqdm(test_loader, desc="test", disable=progress_bar):
             x = x.to(device)
             t = t.to(device).squeeze()
