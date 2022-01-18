@@ -27,3 +27,9 @@ Altijd SELU gebruiken na featurerizen? Ook voor pre-defined models
 Sessie 2:
 
 Hoe zou je het model kunnen ontwerpen om met continuous protected variables om te gaan?
+
+# Week 2 meeting Dimitiris
+- Get rid of undecided in CheXpert
+- Do not focus on the baseline
+- Running the experiment on different hardware setups 
+- difficulty finding hyperparameters is also part of the paper

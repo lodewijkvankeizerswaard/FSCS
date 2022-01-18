@@ -1,4 +1,9 @@
-# FACT
+# FSCS
+
+This is the repository for our entry in the (ML Reproducibility Challenge 2021 Fall Edition)[https://paperswithcode.com/rc2021], where we reproduce the paper "Fair Selective Classification via Sufficiency". 
+
+<!-- What was your motivation?
+Why did you build this project? -->
 
 ## Downloading Datasets
 The evalutation is done on four different datasets: [Adult](https://archive.ics.uci.edu/ml/datasets/adult), [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html), [Civil Comments](https://www.kaggle.com/c/jigsaw-unintended-bias-in-toxicity-classification/data) and [CheXpert](https://stanfordmlgroup.github.io/competitions/chexpert/). This section describes how to obtain each of the datasets. If you just want to test the model in general, the Adult dataset is most easy to obtain and train on. The final data directory should look something like this:
@@ -47,3 +52,5 @@ For the Adult dataset we normalize the columns with continues values to have zer
 
 ### CheXpert
 The images of the CheXpert data are cropped to 224 by 224 pixels (the bottom and right side information are thrown out), and this greyscale image is stacked three times to simulated R, G and B channels (since the DensNet121 expects this as input). The Pleural Effusion is the attribute for this dataset and has three possible values that correspond (in some way) to 'positive', 'negative' and 'undecided'. Everything that was not one, i.e. 'positive', was mapped to zero to make this a binary attribute.
+
+
