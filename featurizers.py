@@ -59,8 +59,9 @@ class CelebAFeaturizer(nn.Module):
 class CivilCommentsFeaturizer(nn.Module):
     def __init__(self):
         super(CivilCommentsFeaturizer, self).__init__()
-        bert_model = torch.hub.load(
-            'huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        self.tokenizer =  torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased')    # Download vocabulary from S3 and cache.
+        bert_model = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased')    # Download model and configuration from S3 and cache
+        bert_model = drop_classification_layer(bert_model)
 
         fc_model = nn.Sequential(
             nn.Linear(1024, NODE_SIZE),
@@ -69,7 +70,8 @@ class CivilCommentsFeaturizer(nn.Module):
         self.model = torch.nn.Sequential(bert_model, fc_model)
 
     def forward(self, x):
-        return self.model(x)
+        tokens = self.tokenizer(x)
+        return self.model(tokens)
 
 
 class CheXPertFeaturizer(nn.Module):
@@ -81,3 +83,6 @@ class CheXPertFeaturizer(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+if __name__ == "__main__":
+    CivilCommentsFeaturizer()
