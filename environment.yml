@@ -159,4 +159,6 @@ dependencies:
     - torch-tb-profiler==0.3.1
     - transformers==4.15.0
     - werkzeug==2.0.2
+    - gdown
 prefix: /Users/tijmenvanetten/miniconda3/envs/FSCS
+    

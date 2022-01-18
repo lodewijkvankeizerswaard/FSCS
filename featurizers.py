@@ -51,6 +51,7 @@ class CelebAFeaturizer(nn.Module):
     def __init__(self):
         super(CelebAFeaturizer, self).__init__()
         self.model = models.resnet50(pretrained=True)
+        self.model = drop_classification_layer(self.model)
 
     def forward(self, x):
         return self.model(x)
