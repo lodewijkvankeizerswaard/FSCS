@@ -185,10 +185,11 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, datas
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
-    checkpont_path = os.path.join("models", checkpoint_name)
-    model = FairClassifier(dataset, nr_attr_values=len(CELEBA_ATTRIBUTE['values'])).to(device)
-    if os.path.exists(checkpont_path):
-        model.load_state_dict(torch.load(checkpont_path))
+    checkpoint_path = os.path.join("models", checkpoint_name)
+    model = FairClassifier(dataset, nr_attr_values=len(ADULT_ATTRIBUTE['values'])).to(device)
+    if os.path.exists(checkpoint_path):
+        print("Found model", checkpoint_path)
+        model.load_state_dict(torch.load(checkpoint_path))
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
                             checkpoint_name, device, dataset_root, progress_bar)
