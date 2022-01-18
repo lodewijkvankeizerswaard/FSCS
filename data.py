@@ -220,30 +220,6 @@ class CheXpertDataset(data.Dataset):
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
 
-def get_train_validation_set(dataset:str, root="data/"):
-    # TODO add docstring
-    # TODO add civil comments, chexpert, celeba
-    if dataset == "adult":
-        train = AdultDataset(root, split="train")
-        val = None
-    elif dataset == "chexpert":
-        train = CheXpertDataset(root, split="train")
-        val = None
-    else:
-        raise ValueError("This dataset is not implemented") 
-    return train, val
-
-def get_test_set(dataset:str, root="data/"):
-    # TODO add docstring
-    # TODO add civil comments, chexpert, celeba
-    if dataset == "adult":
-        test = AdultDataset(root, split="test")
-    elif dataset == "chexpert":
-        test = CheXpertDataset(root, split="test")
-    else:
-        raise ValueError("This dataset is not implemented")
-    return test
-
     
 
 class CelebADataset(data.Dataset):
@@ -305,7 +281,7 @@ class CelebADataset(data.Dataset):
         return len(CELEBA_ATTRIBUTE['values'])
 
     def __len__(self):
-        return len(self._table)
+        return len(self.anno_table)
 
     def __getitem__(self, i):
         # Alias the dataframe and the evaluation partition
@@ -334,9 +310,16 @@ class CivilDataset(data.Dataset):
         # is not one binary value with toxic or not but a value between 0 and 1. Therefor we decided to set a threshold
         # at 0.5. All values below 0.5 were classified as 0 (not toxic) and all values above 0.5 were classified as 1
         self._filename = "train.csv" if split == "train" else "test.csv"
-        self._table = pd.read_csv(os.path.join(self._datapath), self._filename)
+        self._alldata_filename = "all_data.csv"
+        self._partition_table = pd.read_csv(os.path.join(self._datapath, self._filename))
+        self._alldata_table = pd.read_csv(os.path.join(self._datapath, self._alldata_filename))
 
-        probs = self._attr_ratio(self._table)
+        index_list = list(self._partition_table.index.values)
+        self._alldata_table = self._alldata_table.iloc[index_list]
+        self._alldata_table = self._alldata_table[self._alldata_table['christian'].notna()]
+
+
+        probs = self._attr_ratio(self._alldata_table)
         self._attr_dist = torch.distributions.Categorical(probs = probs)
 
         self._transform = transforms.ToTensor()
@@ -375,18 +358,50 @@ class CivilDataset(data.Dataset):
         return len(CIVIL_ATTRIBUTE['values'])
 
     def __len__(self):
-        return len(self._table)
+        return len(self._alldata_table)
     
     def __getitem__(self, i):
         #Alias the dataframe
-        df = self._table
+        df = self._alldata_table
 
         x = df.iloc[i]['comment_text']
-        #t = #TOXICITY???????!!!!!!!!!!!!!
+        if df.iloc[i]['toxicity'] >= 0.5:
+            t = 1
+        else:
+            t = 0
         d = df.iloc[i]['christian']
-        return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
+        return x, torch.Tensor(t), torch.Tensor(d)
 
 
+
+def get_train_validation_set(dataset:str, root="data/"):
+    # TODO add docstring
+    # TODO add civil comments, chexpert, celeba
+    if dataset == "adult":
+        train = AdultDataset(root, split="train")
+        val = None
+    elif dataset == "chexpert":
+        train = CheXpertDataset(root, split="train")
+        val = None
+    elif dataset == "celeba":
+        train = CelebADataset(root, split="train")
+        val = CelebADataset(root, split = "valid")
+    else:
+        raise ValueError("This dataset is not implemented") 
+    return train, val
+
+def get_test_set(dataset:str, root="data/"):
+    # TODO add docstring
+    # TODO add civil comments, chexpert, celeba
+    if dataset == "adult":
+        test = AdultDataset(root, split="test")
+    elif dataset == "chexpert":
+        test = CheXpertDataset(root, split="test")
+    elif dataset == "celeba":
+        test = CelebADataset(root, split="test")
+    else:
+        raise ValueError("This dataset is not implemented")
+    return test
 
 
 
@@ -397,5 +412,5 @@ def get_chexpert(root="data"):
     pass
 
 if __name__ == "__main__":
-    celeba = CelebADataset(root="data")
-    print(celeba.datapoint_shape)
+    civil = CivilDataset(root="data")
+    print(civil[0])
