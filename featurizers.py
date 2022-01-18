@@ -20,7 +20,7 @@ def get_featurizer(dataset_name: str):
 
     elif dataset_name == 'civilcomments':
         model = CivilCommentsFeaturizer()
-        out_features = NODE_SIZE
+        out_features = 768
 
     elif dataset_name == 'chexpert':
         model = CheXPertFeaturizer()
