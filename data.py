@@ -366,11 +366,11 @@ class CivilDataset(data.Dataset):
 
         x = df.iloc[i]['comment_text']
         if df.iloc[i]['toxicity'] >= 0.5:
-            t = 1
+            t = torch.Tensor([1])
         else:
-            t = 0
-        d = df.iloc[i]['christian']
-        return x, torch.Tensor(t), torch.Tensor(d)
+            t = torch.Tensor([0])
+        d = torch.Tensor([int(df.iloc[i]['christian'] == 1)])
+        return x, t, d
 
 
 
@@ -386,6 +386,9 @@ def get_train_validation_set(dataset:str, root="data/"):
     elif dataset == "celeba":
         train = CelebADataset(root, split="train")
         val = CelebADataset(root, split = "valid")
+    elif dataset == "civil":
+        train = CivilDataset(root, split="train")
+        val = None
     else:
         raise ValueError("This dataset is not implemented") 
     return train, val
@@ -399,6 +402,8 @@ def get_test_set(dataset:str, root="data/"):
         test = CheXpertDataset(root, split="test")
     elif dataset == "celeba":
         test = CelebADataset(root, split="test")
+    elif dataset == "civil":
+        test = CivilDataset(root, split="test")
     else:
         raise ValueError("This dataset is not implemented")
     return test
