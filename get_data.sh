@@ -64,7 +64,7 @@ fi
 ##################
 CELEB_URL="'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'"
 CELEB_ANNO_URL = "'https://drive.google.com/uc?id=0B7EVK8r0v71pblRyaVFSWGxPY0U'"
-CELEB_EVAL_URL = "'https://drive.google.com/uc?id=0B7EVK8r0v71pY0NSMzRuSXJEVkk"
+CELEB_EVAL_URL = "'https://drive.google.com/uc?id=0B7EVK8r0v71pY0NSMzRuSXJEVkk'"
 if [[ -d celeba/img_align_celeba ]] && [[-d celeba/anno]]; then
 if [[ -d celeba/img_align_celeba ]]; then
     echo "CelebA dataset found!"
