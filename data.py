@@ -328,6 +328,7 @@ class CivilDataset(data.Dataset):
         self._attr_dist = torch.distributions.Categorical(probs = probs)
 
         self._transform = transforms.ToTensor()
+        self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')    # Download vocabulary from S3 and cache.
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
@@ -375,6 +376,7 @@ class CivilDataset(data.Dataset):
         else:
             t = torch.Tensor([0])
         d = torch.Tensor([int(df.iloc[i]['christian'] == 1)])
+        x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
         return x, t, d
 
 
@@ -422,12 +424,14 @@ def get_chexpert(root="data"):
     pass
 
 if __name__ == "__main__":
-    dummy = AdultDataset('data', split="train")
-    dummy2 = AdultDataset('data', split='test')
-    # print(dummy[3])
-    # print(dummy.sample_d((10,10)))
-    # print(dummy.datapoint_shape())
-    # print(dummy2.datapoint_shape())
+    test = CivilDataset('data', split="train")
+    print(test[0])
+    # dummy = AdultDataset('data', split="train")
+    # dummy2 = AdultDataset('data', split='test')
+    # # print(dummy[3])
+    # # print(dummy.sample_d((10,10)))
+    # # print(dummy.datapoint_shape())
+    # # print(dummy2.datapoint_shape())
 
-    ch1 = CheXpertDataset('data', split="train")
-    ch2 = CheXpertDataset('data', split="test")
+    # ch1 = CheXpertDataset('data', split="train")
+    # ch2 = CheXpertDataset('data', split="test")
