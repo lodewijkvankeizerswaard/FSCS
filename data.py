@@ -50,8 +50,9 @@ class AdultDataset(data.Dataset):
             # Introduce bias in the train data
             where_d_zero = set(table[ table[ADULT_ATTRIBUTE['column']] == ADULT_ATTRIBUTE['values'][0] ].index)
             where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
-            bias = list(where_d_zero & where_y_one)[50:]
-            table = table.drop(index=bias)
+            drop_rows = list(where_d_zero & where_y_one)[50:]
+            self._dropped_rows = drop_rows
+            table = table.drop(index=drop_rows)
         
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
