@@ -4,18 +4,161 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - absl-py=1.0.0
+  - aiohttp=3.8.1
+  - aiosignal=1.2.0
+  - appnope=0.1.2
+  - async-timeout=4.0.2
+  - attrs=21.4.0
+  - autopep8=1.6.0
+  - backcall=0.2.0
+  - backports=1.0
+  - backports.functools_lru_cache=1.6.4
+  - blinker=1.4
+  - boto3=1.18.21
+  - botocore=1.21.41
+  - bottleneck=1.3.2
+  - brotli=1.0.9
+  - brotli-bin=1.0.9
+  - brotlipy=0.7.0
+  - bzip2=1.0.8
+  - c-ares=1.18.1
+  - ca-certificates=2021.10.26
+  - cachetools=4.2.4
+  - certifi=2021.10.8
+  - cffi=1.15.0
+  - charset-normalizer=2.0.4
+  - click=8.0.3
+  - cryptography=36.0.0
+  - cycler=0.11.0
+  - dataclasses=0.8
+  - debugpy=1.5.1
+  - decorator=5.1.1
+  - entrypoints=0.3
+  - fonttools=4.28.5
+  - freetype=2.10.4
+  - frozenlist=1.2.0
+  - future=0.18.2
+  - google-auth-oauthlib=0.4.6
+  - grpcio=1.43.0
+  - idna=3.3
   - ipykernel=6.6.1
-  - matplotlib
+  - ipython=7.31.0
+  - jbig=2.1
+  - jedi=0.18.1
+  - jmespath=0.10.0
+  - joblib=1.1.0
+  - jpeg=9d
+  - jupyter_client=7.1.0
+  - jupyter_core=4.9.1
+  - kiwisolver=1.3.2
+  - lcms2=2.12
+  - lerc=3.0
+  - libblas=3.9.0
+  - libbrotlicommon=1.0.9
+  - libbrotlidec=1.0.9
+  - libbrotlienc=1.0.9
+  - libcblas=3.9.0
+  - libcxx=12.0.1
+  - libdeflate=1.8
+  - libffi=3.4.2
+  - libgfortran=5.0.0.dev0
+  - libgfortran5=11.0.1.dev0
+  - liblapack=3.9.0
+  - libopenblas=0.3.18
+  - libpng=1.6.37
+  - libprotobuf=3.18.1
+  - libsodium=1.0.18
+  - libtiff=4.3.0
+  - libwebp-base=1.2.1
+  - libzlib=1.2.11
+  - llvm-openmp=12.0.1
+  - lz4-c=1.9.3
+  - markdown=3.3.6
+  - matplotlib=3.5.1
+  - matplotlib-base=3.5.1
+  - matplotlib-inline=0.1.3
+  - multidict=5.2.0
+  - munkres=1.1.4
+  - ncurses=6.2
+  - nest-asyncio=1.5.4
+  - ninja=1.10.2
+  - numexpr=2.8.1
+  - numpy=1.22.0
+  - oauthlib=3.1.1
+  - olefile=0.46
+  - openjpeg=2.4.0
+  - openssl=3.0.0
+  - packaging=21.3
   - pandas=1.3.5
+  - parso=0.8.3
+  - pexpect=4.8.0
+  - pickleshare=0.7.5
+  - pillow=8.4.0
   - pip=21.3.1
+  - prompt-toolkit=3.0.24
+  - ptyprocess=0.7.0
+  - pyasn1=0.4.8
+  - pycodestyle=2.8.0
+  - pycparser=2.21
+  - pygments=2.11.2
+  - pyjwt=2.3.0
+  - pyopenssl=21.0.0
+  - pyparsing=3.0.6
+  - pysocks=1.7.1
   - python=3.9.9
+  - python-dateutil=2.8.2
+  - python_abi=3.9
   - pytorch=1.10.0
+  - pytz=2021.3
+  - pyu2f=0.1.5
+  - pyzmq=22.3.0
+  - readline=8.1
   - regex=2021.7.6
-  - torchvision=0.11.0
+  - requests=2.27.1
+  - requests-oauthlib=1.3.0
+  - rsa=4.8
+  - s3transfer=0.5.0
+  - sacremoses=0.0.43
+  - sentencepiece=0.1.95
+  - setuptools=60.5.0
+  - six=1.16.0
+  - sleef=3.5.1
+  - sqlite=3.37.0
+  - tensorboard-plugin-wit=1.8.1
+  - tk=8.6.11
+  - toml=0.10.2
+  - torchvision=0.2.2
+  - tornado=6.1
   - tqdm=4.62.3
-  - kaggle=1.5.12
-  - setuptools=59.5.0 # <https://github.com/pytorch/pytorch/pull/69904>
+  - traitlets=5.1.1
+  - typing-extensions=4.0.1
+  - typing_extensions=4.0.1
+  - tzdata=2021e
+  - urllib3=1.26.7
+  - wcwidth=0.2.5
+  - wheel=0.37.1
+  - xz=5.2.5
+  - yarl=1.7.2
+  - zeromq=4.3.4
+  - zipp=3.7.0
+  - zlib=1.2.11
+  - zstd=1.5.1
   - pip:
-    - tensorboard
+    - filelock==3.4.2
+    - google-auth==2.3.3
+    - huggingface-hub==0.4.0
+    - importlib-metadata==4.10.1
+    - protobuf==3.19.3
+    - pyasn1-modules==0.2.8
     - pytorch-transformers==1.2.0
+    - pyyaml==6.0
+    - tensorboard==2.7.0
+    - tensorboard-data-server==0.6.1
+    - tokenizers==0.10.3
+    - torch-tb-profiler==0.3.1
+    - transformers==4.15.0
+    - werkzeug==2.0.2
     - gdown
+prefix: /Users/tijmenvanetten/miniconda3/envs/FSCS
+    

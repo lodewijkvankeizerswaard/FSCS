@@ -25,7 +25,6 @@ ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-lo
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
-    # TODO add data bias 
     # TODO improve comments
     def __init__(self, root, split="train"):
         datapath = os.path.join(root, "adult")
@@ -43,11 +42,17 @@ class AdultDataset(data.Dataset):
 
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
-
-        # Add missing country to test data
+        probs = self._attr_ratio(table)
         if split == "test":
+            # Add missing country to test data
             table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
-
+        else:
+            # Introduce bias in the train data
+            where_d_zero = set((table[ADULT_ATTRIBUTE['column']] == ADULT_ATTRIBUTE['values'][0]).index)
+            where_y_one = set((table['salary_ >50K'] == 1).index)
+            bias = list(where_d_zero & where_y_one)[50:]
+            table = table.drop(index=bias)
+        
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
 
@@ -160,10 +165,10 @@ class CheXpertDataset(data.Dataset):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         
-        # Read the csv file, and replace all 0's and -1's with nan (to make flags binary)
+        # Read the csv file, and remove rows with -1's for the attribute value (to make flags binary)
         self._filename = "train.csv" if split == "train" else "valid.csv"
-        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename), na_values=[0,-1])
-        self._table.fillna(0, inplace=True)
+        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
+        self._table = self._table[ self._table[CHEXPERT_ATTRIBUTE['column']].isin(CHEXPERT_ATTRIBUTE['values']) == True ]
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
@@ -417,5 +422,12 @@ def get_chexpert(root="data"):
     pass
 
 if __name__ == "__main__":
-    civil = CivilDataset(root="data")
-    print(civil[0])
+    dummy = AdultDataset('data', split="train")
+    dummy2 = AdultDataset('data', split='test')
+    # print(dummy[3])
+    # print(dummy.sample_d((10,10)))
+    # print(dummy.datapoint_shape())
+    # print(dummy2.datapoint_shape())
+
+    ch1 = CheXpertDataset('data', split="train")
+    ch2 = CheXpertDataset('data', split="test")

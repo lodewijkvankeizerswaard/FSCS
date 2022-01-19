@@ -64,6 +64,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     best_accuracy = 0
     for epoch in tqdm(range(epochs), position=0, desc="epoch", disable=progress_bar):
+        model.train()
 
         # Group specific training
         group_correct, group_total = 0, 0
@@ -152,6 +153,7 @@ def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.de
     num_correct = 0
     total_samples = 0 
     with torch.no_grad():
+        model.eval()
         for x, t, _ in tqdm(test_loader, desc="test", disable=progress_bar):
             x = x.to(device)
             t = t.to(device).squeeze()
@@ -183,10 +185,11 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, datas
     set_seed(seed)
 
     checkpoint_name = dataset+ '.pt'
-    checkpont_path = os.path.join("models", checkpoint_name)
-    model = FairClassifier(dataset, nr_attr_values=len(CIVIL_ATTRIBUTE['values'])).to(device)
-    if os.path.exists(checkpont_path):
-        model.load_state_dict(torch.load(checkpont_path))
+    checkpoint_path = os.path.join("models", checkpoint_name)
+    model = FairClassifier(dataset, nr_attr_values=len(ADULT_ATTRIBUTE['values'])).to(device)
+    if os.path.exists(checkpoint_path):
+        print("Found model", checkpoint_path)
+        model.load_state_dict(torch.load(checkpoint_path))
     else:
         model = train_model(model, dataset, lr, batch_size, epochs,
                             checkpoint_name, device, dataset_root, progress_bar)
