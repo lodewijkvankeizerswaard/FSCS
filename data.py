@@ -7,6 +7,7 @@ import zipfile
 # import gdown
 from PIL import Image
 from torchvision import transforms
+from tqdm import tqdm
 
 
 # TODO add Civil Comments dataset object
