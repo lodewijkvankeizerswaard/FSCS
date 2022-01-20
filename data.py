@@ -427,8 +427,11 @@ def get_chexpert(root="data"):
     pass
 
 if __name__ == "__main__":
-    test = CivilDataset('data', split="train")
-    print(test[0])
+    train_set = CivilDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    for p in tqdm(train_loader):
+        a = p[0]
     # dummy = AdultDataset('data', split="train")
     # dummy2 = AdultDataset('data', split='test')
     # # print(dummy[3])
