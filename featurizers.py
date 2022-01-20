@@ -18,8 +18,8 @@ def get_featurizer(dataset_name: str):
         model = CelebAFeaturizer()
         out_features = 2048
 
-    elif dataset_name == 'civilcomments':
-        model = CivilCommentsFeaturizer()
+    elif dataset_name == 'civil':
+        model = CivilFeaturizer()
         out_features = 80
 
     elif dataset_name == 'chexpert':
@@ -57,9 +57,9 @@ class CelebAFeaturizer(nn.Module):
         return self.model(x)
 
 
-class CivilCommentsFeaturizer(nn.Module):
+class CivilFeaturizer(nn.Module):
     def __init__(self):
-        super(CivilCommentsFeaturizer, self).__init__()
+        super(CivilFeaturizer, self).__init__()
         # Using the configuration with a model
         # config = torch.hub.load('huggingface/pytorch-transformers', 'config', 'bert-base-uncased')
         # config.output_attentions = True
@@ -87,6 +87,3 @@ class CheXPertFeaturizer(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-
-if __name__ == "__main__":
-    CivilCommentsFeaturizer()
