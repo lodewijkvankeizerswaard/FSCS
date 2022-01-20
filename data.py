@@ -159,17 +159,19 @@ class AdultDataset(data.Dataset):
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
-    # TODO change target to Pleural Effusion
     # TODO image preprocessing
     # TODO improve comments
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         
-        # Read the csv file, and remove rows with -1's for the attribute value (to make flags binary)
+        # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
         self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
+
+        # Remove rows with -1's for the attribute value and target value (to make flags binary)
         self._table = self._table[ self._table[CHEXPERT_ATTRIBUTE['column']].isin(CHEXPERT_ATTRIBUTE['values']) == True ]
+        # TODO Remove rows with -1 target values
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
@@ -221,7 +223,7 @@ class CheXpertDataset(data.Dataset):
         filename = df.iloc[i]['Path']
         img = Image.open(os.path.join(self._datapath, filename))
 
-        x = self._transfrom(img)[:,:224,:224].repeat(3,1,1)
+        x = self._transfrom(img).resize((224,224)).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
