@@ -31,8 +31,8 @@ def get_featurizer(dataset_name: str):
     return out_features, model
 
 
-def drop_classification_layer(model, n=1):
-    return torch.nn.Sequential(*(list(model.children())[:-n]))
+def drop_classification_layer(model):
+    return torch.nn.Sequential(*(list(model.children())[:-1]))
 
 
 class AdultFeaturizer(nn.Module):
@@ -51,7 +51,7 @@ class CelebAFeaturizer(nn.Module):
     def __init__(self):
         super(CelebAFeaturizer, self).__init__()
         self.model = models.resnet50(pretrained=True)
-        self.model = drop_classification_layer(self.model, n=2)
+        self.model = drop_classification_layer(self.model)
 
     def forward(self, x):
         return self.model(x)
@@ -61,23 +61,20 @@ class CivilCommentsFeaturizer(nn.Module):
     def __init__(self):
         super(CivilCommentsFeaturizer, self).__init__()
         # Using the configuration with a model
-        config = torch.hub.load('huggingface/pytorch-transformers', 'config', 'bert-base-uncased')
-        config.output_attentions = True
-        config.output_hidden_states = True
-        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
-        self.bert = drop_classification_layer(self.bert, n=2)
+        # config = torch.hub.load('huggingface/pytorch-transformers', 'config', 'bert-base-uncased')
+        # config.output_attentions = True
+        # config.output_hidden_states = True
+        bert = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
+        # bert = drop_classification_layer(bert)
 
-        # print(self.bert)
-        self.fc_model = nn.Sequential(
+        bert.classifier = nn.Sequential(
             nn.Linear(768, NODE_SIZE),
-            nn.SELU()
+            nn.SELU()   
         )
+        self.bert = bert
 
     def forward(self, x):
-        idx = (x==102).nonzero(as_tuple=True)
-        print(idx)
-        features = self.bert(x)[0].squeeze()
-        output = self.fc_model(features[idx, :])
+        output = self.bert(x)[0]
         return output
 
 
