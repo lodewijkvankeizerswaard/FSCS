@@ -20,4 +20,4 @@ source activate FSCS
 # Copy dataset
 cp -r data/$DATASET $TMPDIR/$DATASET
 
-srun python -u train_model.py --dataset $DATASET --lr 0.001 --batch_size 32 --epochs 20 --dataset_root $TMPDIR
+srun python -u train_model.py --dataset $DATASET --lr 0.0001 --batch_size 32 --epochs 20 --dataset_root $TMPDIR
