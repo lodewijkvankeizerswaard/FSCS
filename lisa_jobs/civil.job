@@ -9,7 +9,7 @@
 #SBATCH --mem=32000M
 #SBATCH --output=slurm_output_CIVIL_%A.out
 
-DATASET="civil"
+DATASET="civilcomments"
 
 module purge
 module load 2021
