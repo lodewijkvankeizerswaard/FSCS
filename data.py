@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import torch.utils.data as data
 import zipfile
-import gdown
+# import gdown
 from PIL import Image
 from torchvision import transforms
 
@@ -377,7 +377,7 @@ class CivilDataset(data.Dataset):
             t = torch.Tensor([0])
         d = torch.Tensor([int(df.iloc[i]['christian'] == 1)])
         x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
-        return x, t, d
+        return x.squeeze(), t, d
 
 
 

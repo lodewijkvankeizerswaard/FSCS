@@ -20,7 +20,7 @@ def get_featurizer(dataset_name: str):
 
     elif dataset_name == 'civilcomments':
         model = CivilCommentsFeaturizer()
-        out_features = 768
+        out_features = 80
 
     elif dataset_name == 'chexpert':
         model = CheXPertFeaturizer()
@@ -31,8 +31,8 @@ def get_featurizer(dataset_name: str):
     return out_features, model
 
 
-def drop_classification_layer(model):
-    return torch.nn.Sequential(*(list(model.children())[:-1]))
+def drop_classification_layer(model, n=1):
+    return torch.nn.Sequential(*(list(model.children())[:-n]))
 
 
 class AdultFeaturizer(nn.Module):
@@ -51,7 +51,7 @@ class CelebAFeaturizer(nn.Module):
     def __init__(self):
         super(CelebAFeaturizer, self).__init__()
         self.model = models.resnet50(pretrained=True)
-        self.model = drop_classification_layer(self.model)
+        self.model = drop_classification_layer(self.model, n=2)
 
     def forward(self, x):
         return self.model(x)
@@ -60,18 +60,24 @@ class CelebAFeaturizer(nn.Module):
 class CivilCommentsFeaturizer(nn.Module):
     def __init__(self):
         super(CivilCommentsFeaturizer, self).__init__()
-        bert_model = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
-        self.bert_model = drop_classification_layer(bert_model)
+        # Using the configuration with a model
+        config = torch.hub.load('huggingface/pytorch-transformers', 'config', 'bert-base-uncased')
+        config.output_attentions = True
+        config.output_hidden_states = True
+        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
+        self.bert = drop_classification_layer(self.bert, n=2)
 
+        # print(self.bert)
         self.fc_model = nn.Sequential(
-            nn.Linear(1024, NODE_SIZE),
+            nn.Linear(768, NODE_SIZE),
             nn.SELU()
         )
 
     def forward(self, x):
-        features = self.bert_model(x)
-        print(features)
-        output = self.fc_model(features)
+        idx = (x==102).nonzero(as_tuple=True)
+        print(idx)
+        features = self.bert(x)[0].squeeze()
+        output = self.fc_model(features[idx, :])
         return output
 
 

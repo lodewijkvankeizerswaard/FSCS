@@ -9,7 +9,7 @@ import argparse
 
 from data import ADULT_ATTRIBUTE, CELEBA_ATTRIBUTE, CIVIL_ATTRIBUTE, get_train_validation_set, get_test_set
 from model import FairClassifier
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 LAMBDA = 0.7 
 
@@ -41,7 +41,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     Returns:
         model: Model that has performed best on the validation set.
     """
-    writer = SummaryWriter()
+    # writer = SummaryWriter()
 
     # Load the datasets
     train_set, val_set = get_train_validation_set(dataset, root=dataset_root)
@@ -83,7 +83,7 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             group_correct += num_correct_predictions(pred_group_spe, t)
             group_total += len(x)
 
-        writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
+        # writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
@@ -116,9 +116,9 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
 
-        writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
+        # writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
     
-    writer.close()
+    # writer.close()
         
     # Load best model and return it.
     # model.load_state_dict(torch.load("models/" + checkpoint_name))

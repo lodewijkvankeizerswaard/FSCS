@@ -39,5 +39,4 @@ Sessie 4:
 
 BERT input 512 tokens voor civil comments?
 Binary attributes almost done:
-    Continuous attributes evaluation (Compare model against baseline)
     Categorical attributes evaluation (Compare model against baseline)
