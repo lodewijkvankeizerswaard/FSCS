@@ -394,7 +394,7 @@ def get_train_validation_set(dataset:str, root="data/"):
     elif dataset == "celeba":
         train = CelebADataset(root, split="train")
         val = CelebADataset(root, split = "valid")
-    elif dataset == "civilcomments":
+    elif dataset == "civil":
         train = CivilDataset(root, split="train")
         val = None
     else:
@@ -410,7 +410,7 @@ def get_test_set(dataset:str, root="data/"):
         test = CheXpertDataset(root, split="test")
     elif dataset == "celeba":
         test = CelebADataset(root, split="test")
-    elif dataset == "civilcomments":
+    elif dataset == "civil":
         test = CivilDataset(root, split="test")
     else:
         raise ValueError("This dataset is not implemented")
