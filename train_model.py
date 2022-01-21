@@ -79,6 +79,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
     for epoch in tqdm(range(epochs), position=0, desc="epoch", disable=progress_bar):
         model.train()
+        nr_batches = len(train_loader)
 
         # Group specific training
         group_correct, group_total = 0, 0
@@ -99,7 +100,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             group_total += len(x)
             group_loss += group_specific_loss
 
-            writer.add_scalar("train/batch/group_loss", group_specific_loss, i)
+            writer.add_scalar("train/batch/group_loss", group_specific_loss, i + epoch * nr_batches)
 
         writer.add_scalar("train/group_loss", group_loss, epoch)
         writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
@@ -136,8 +137,8 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
 
-            writer.add_scalar("train/batch/joint_loss", L_0)
-            writer.add_scalar("train/batch/reg_loss", L_R)
+            writer.add_scalar("train/batch/joint_loss", L_0, i + epoch * nr_batches)
+            writer.add_scalar("train/batch/reg_loss", L_R, i + epoch * nr_batches)
         
         writer.add_scalar("train/joint_acc", joint_correct / joint_total, epoch)
         writer.add_scalar("train/joint_loss", joint_loss, epoch)
@@ -206,7 +207,8 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
 
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
-
+    writer = SummaryWriter()
+    writer.add_hparams({"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j}, dict())
     # Check if the given configuration has been trained before
     # TODO change checkpoint naming convention
     checkpoint_name = dataset+ '.pt'
@@ -215,7 +217,7 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
         model = FairClassifier(dataset, nr_attr_values=10).to(device)
-        model.load_state_dict(torch.load(checkpoint_path))
+        model.load_state_dict(torch.load(checkpoint_path), strict=False)
 
     else:
         # Load the dataset with the given parameters, initialize the model and start training
@@ -223,8 +225,6 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
         train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers) if val_set else None
 
-        writer = SummaryWriter()
-        writer.add_hparams({"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j}, dict())
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
         model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, epochs,
                             checkpoint_name, device, progress_bar, writer)
