@@ -9,7 +9,7 @@ import argparse
 
 from data import ADULT_ATTRIBUTE, CELEBA_ATTRIBUTE, CIVIL_ATTRIBUTE, get_train_validation_set, get_test_set
 from model import FairClassifier
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 LAMBDA = 0.7 
 
@@ -77,7 +77,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             group_correct += num_correct_predictions(pred_group_spe, t)
             group_total += len(x)
 
-        # writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
+        writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
@@ -109,15 +109,16 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
-
-        # writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
-    
-    # writer.close()
         
-    # Load best model and return it.
-    # model.load_state_dict(torch.load("models/" + checkpoint_name))
-    torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
+        if val_loader:
+            pass
 
+        writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
+    
+    writer.close()
+        
+    # Save best model and return it.
+    torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
     return model
 
 def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) -> int:
