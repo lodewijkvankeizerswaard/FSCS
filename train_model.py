@@ -25,9 +25,32 @@ def set_seed(seed: int):
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
 
+def get_optimizer(parameters, lr: float, optimizer: str) -> torch.optim.Optimizer:
+    """Returns the specified optimizer with the given parameters and learning rate.
+
+    Args:
+        parameters ([type]): the parameters the optimizer should optimize.
+        lr (float): the learning rate to use.
+        optimizer (str): the optimizer to use.
+
+    Returns:
+        torch.optim.Optimizer: the optimizer object.
+    """
+    optimizer = optimizer.lower()
+    if optimizer == "sgd":
+        opt = torch.optim.SGD(parameters, lr)
+    elif optimizer == "adam":
+        opt = torch.optim.Adam(parameters, lr)
+    else:
+        ValueError("The optimizer {} is not implemented.".format(optimizer))
+    return opt
+
+def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: float, optim: str, seed: int) -> str:
+    return dataset + attribute + lr_f + lr_g + lr_j + optim + seed
+
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
-                lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, checkpoint_name: str, 
-                device: torch.device, progress_bar: bool):
+                optimizer:str, lr_f: float, lr_g: float, lr_j: float, epochs: int, checkpoint_name: str, 
+                device: torch.device, progress_bar: bool, writer: torch.utils.tensorboard.SummaryWriter) -> nn.Module:
     """
     Trains a given model architecture for the specified hyperparameters.
 
@@ -42,16 +65,15 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
     Returns:
         model: Model that has performed best on the validation set.
     """
-    writer = SummaryWriter()
 
     # Initialize the optimizer and loss function
     group_specific_params = [param for gsm in model.group_specific_models for param in gsm.parameters()]
     feature_extractor_params = model.featurizer.parameters()
     joint_classifier_params = model.joint_classifier.parameters()
 
-    group_specific_optimizer = torch.optim.SGD(group_specific_params, lr=lr_g)
-    feature_extractor_optimizer = torch.optim.SGD(feature_extractor_params, lr=lr_f)
-    joint_classifier_optimizer = torch.optim.SGD(joint_classifier_params, lr=lr_j)
+    group_specific_optimizer = get_optimizer(group_specific_params, lr=lr_g, optimizer=optimizer)
+    feature_extractor_optimizer = get_optimizer(feature_extractor_params, lr=lr_f, optimizer=optimizer)
+    joint_classifier_optimizer = get_optimizer(joint_classifier_params, lr=lr_j, optimizer=optimizer)
 
     loss_module = nn.BCELoss()
 
@@ -115,8 +137,6 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
         writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
     
-    writer.close()
-        
     # Save best model and return it.
     torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
     return model
@@ -126,7 +146,7 @@ def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) ->
     count = (predictions == targets.squeeze()).sum()
     return count.item()
 
-def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, batch_size: int, device: torch.device, seed: int, progress_bar: bool):
+def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, device: torch.device, seed: int, progress_bar: bool, writer: torch.utils.tensorboard.SummaryWriter) -> float:
     """
     Tests a trained model on the test set.
 
@@ -156,10 +176,12 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, batch
             total_samples += len(x)
 
     avg_accuracy = num_correct / total_samples
+
+    writer.add_scalar("test/acc", avg_accuracy)
     
     return avg_accuracy
 
-def main(dataset: str, attribute: str, num_workers: int, lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
+def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -183,7 +205,7 @@ def main(dataset: str, attribute: str, num_workers: int, lr_f: float, lr_g: floa
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
-        model = FairClassifier(dataset, nr_attr_values=len(CIVIL_ATTRIBUTE['values'])).to(device)
+        model = FairClassifier(dataset, nr_attr_values=10).to(device)
         model.load_state_dict(torch.load(checkpoint_path))
 
     else:
@@ -192,13 +214,18 @@ def main(dataset: str, attribute: str, num_workers: int, lr_f: float, lr_g: floa
         train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers) if val_set else None
 
+        writer = SummaryWriter()
+        writer.add_hparams({"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j}, dict())
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
-        model = train_model(model, train_loader, val_loader, lr_f, lr_g, lr_j, batch_size, epochs,
-                            checkpoint_name, device, progress_bar)
+        model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, epochs,
+                            checkpoint_name, device, progress_bar, writer)
     
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    test_results = test_model(model, test_loader, batch_size, device, seed, progress_bar)
+    test_results = test_model(model, test_loader, device, seed, progress_bar, writer)
+
+    writer.close()
+
     print("Accuracy on the test set:", test_results)
     return test_results
 
@@ -216,6 +243,8 @@ if __name__ == '__main__':
                         help='The amount of threads for the data loader object.')
     
     # Optimizer hyperparameters
+    parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"],
+                        help='The optimizer to use. Available options are: sgd, adam')
     parser.add_argument('--lr_f', default=0.01, type=float,
                         help='Learning rate to use for the featurizer')
     parser.add_argument('--lr_g', default=0.01, type=float,
