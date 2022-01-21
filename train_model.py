@@ -3,11 +3,10 @@ from torch import nn
 import numpy as np
 
 import os
-from torch.nn.modules import loss
 from tqdm import tqdm
 import argparse
 
-from data import ADULT_ATTRIBUTE, CELEBA_ATTRIBUTE, CIVIL_ATTRIBUTE, get_train_validation_set, get_test_set
+from data import get_train_validation_set, get_test_set
 from model import FairClassifier
 from torch.utils.tensorboard import SummaryWriter
 
