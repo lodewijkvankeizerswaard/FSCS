@@ -215,7 +215,7 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     # Check if the given configuration has been trained before
     checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
 
-    writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name))
+    writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
     hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
 
     checkpoint_path = os.path.join("models", checkpoint_name)
