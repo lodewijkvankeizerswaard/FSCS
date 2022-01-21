@@ -45,7 +45,12 @@ def get_optimizer(parameters, lr: float, optimizer: str) -> torch.optim.Optimize
     return opt
 
 def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: float, optim: str, seed: int) -> str:
-    return dataset + attribute + lr_f + lr_g + lr_j + optim + seed
+    """Parse the training arguments into a filename 
+    Returns:
+        str: The name to use for logging and saving
+    """
+    lrs = [str(lr.item())[:2] for lr in torch.log10(torch.Tensor([lr_f, lr_g, lr_j]))]
+    return "{}_{}_{}{}{}_{}_{}".format(dataset, attribute, *lrs, optim, str(seed))
 
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
                 optimizer:str, lr_f: float, lr_g: float, lr_j: float, epochs: int, checkpoint_name: str, 
@@ -204,14 +209,15 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
         test_results: Dictionary containing an overview of the accuracies achieved on the different
                       corruption functions and the plain test set.
     """
+    writer = SummaryWriter()
+    hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
 
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
-    writer = SummaryWriter()
-    writer.add_hparams({"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j}, dict())
+
     # Check if the given configuration has been trained before
     # TODO change checkpoint naming convention
-    checkpoint_name = dataset+ '.pt'
+    checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
     checkpoint_path = os.path.join("models", checkpoint_name)
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
@@ -233,6 +239,7 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
     test_results = test_model(model, test_loader, device, seed, progress_bar, writer)
 
+    writer.add_hparams(hparams, {"test_acc": test_results})
     writer.close()
 
     print("Accuracy on the test set:", test_results)
