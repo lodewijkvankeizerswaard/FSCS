@@ -209,15 +209,15 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
         test_results: Dictionary containing an overview of the accuracies achieved on the different
                       corruption functions and the plain test set.
     """
-    writer = SummaryWriter()
-    hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
-
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
 
     # Check if the given configuration has been trained before
-    # TODO change checkpoint naming convention
     checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
+
+    writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name))
+    hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
+
     checkpoint_path = os.path.join("models", checkpoint_name)
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
