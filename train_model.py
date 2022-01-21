@@ -25,8 +25,9 @@ def set_seed(seed: int):
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
 
-def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int, 
-                epochs: int, checkpoint_name: str, device: torch.device, dataset_root:str, progress_bar: bool):
+def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
+                lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, checkpoint_name: str, 
+                device: torch.device, progress_bar: bool):
     """
     Trains a given model architecture for the specified hyperparameters.
 
@@ -41,23 +42,16 @@ def train_model(model: nn.Module, dataset: str, lr: float, batch_size: int,
     Returns:
         model: Model that has performed best on the validation set.
     """
-    # writer = SummaryWriter()
-
-    # Load the datasets
-    train_set, val_set = get_train_validation_set(dataset, root=dataset_root)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    # validation_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
-    #                                                 shuffle=True, num_workers=2)
+    writer = SummaryWriter()
 
     # Initialize the optimizer and loss function
     group_specific_params = [param for gsm in model.group_specific_models for param in gsm.parameters()]
     feature_extractor_params = model.featurizer.parameters()
     joint_classifier_params = model.joint_classifier.parameters()
 
-    group_specific_optimizer = torch.optim.SGD(group_specific_params, lr=lr)
-    feature_extractor_optimizer = torch.optim.SGD(feature_extractor_params, lr=lr)
-    joint_classifier_optimizer = torch.optim.SGD(joint_classifier_params, lr=lr)
+    group_specific_optimizer = torch.optim.SGD(group_specific_params, lr=lr_g)
+    feature_extractor_optimizer = torch.optim.SGD(feature_extractor_params, lr=lr_f)
+    joint_classifier_optimizer = torch.optim.SGD(joint_classifier_params, lr=lr_j)
 
     loss_module = nn.BCELoss()
 
@@ -131,7 +125,7 @@ def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) ->
     count = (predictions == targets.squeeze()).sum()
     return count.item()
 
-def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.device, seed: int, dataset_root: str, progress_bar: bool):
+def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, batch_size: int, device: torch.device, seed: int, progress_bar: bool):
     """
     Tests a trained model on the test set.
 
@@ -146,9 +140,6 @@ def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.de
     """
 
     set_seed(seed)
-    test_set = get_test_set(dataset, root=dataset_root)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
-                                                shuffle=True, num_workers=3)
 
     num_correct = 0
     total_samples = 0 
@@ -167,7 +158,7 @@ def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.de
     
     return avg_accuracy
 
-def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
+def main(dataset: str, attribute: str, num_workers: int, lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -184,16 +175,29 @@ def main(dataset: str, lr: float, batch_size: int, epochs: int, seed: int, datas
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
 
+    # Check if the given configuration has been trained before
+    # TODO change checkpoint naming convention
     checkpoint_name = dataset+ '.pt'
     checkpoint_path = os.path.join("models", checkpoint_name)
-    model = FairClassifier(dataset, nr_attr_values=len(CIVIL_ATTRIBUTE['values'])).to(device)
     if os.path.exists(checkpoint_path):
+        # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
+        model = FairClassifier(dataset, nr_attr_values=len(CIVIL_ATTRIBUTE['values'])).to(device)
         model.load_state_dict(torch.load(checkpoint_path))
+
     else:
-        model = train_model(model, dataset, lr, batch_size, epochs,
-                            checkpoint_name, device, dataset_root, progress_bar)
-    test_results = test_model(model, dataset, batch_size, device, seed, dataset_root, progress_bar)
+        # Load the dataset with the given parameters, initialize the model and start training
+        train_set, val_set = get_train_validation_set(dataset, root=dataset_root, attribute=attribute)
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers) if val_set else None
+
+        model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
+        model = train_model(model, train_loader, val_loader, lr_f, lr_g, lr_j, batch_size, epochs,
+                            checkpoint_name, device, progress_bar)
+    
+    test_set = get_test_set(dataset, dataset_root)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
+    test_results = test_model(model, test_loader, batch_size, device, seed, progress_bar)
     print("Accuracy on the test set:", test_results)
     return test_results
 
@@ -201,13 +205,22 @@ if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
     
-    # Model hyperparameters
+    # General hyperparameters
     parser.add_argument('--dataset', default='adult', type=str,
                         help='Name of the dataset to evaluate on.')
+    parser.add_argument('--attribute', default="", type=str,
+                        help='The sensitive attribute to use during training. \
+                            If empty the default dataset specific attribute will be used.')
+    parser.add_argument('--num_workers', default=3, type=int,
+                        help='The amount of threads for the data loader object.')
     
     # Optimizer hyperparameters
-    parser.add_argument('--lr', default=0.01, type=float,
-                        help='Learning rate to use.')
+    parser.add_argument('--lr_f', default=0.01, type=float,
+                        help='Learning rate to use for the featurizer')
+    parser.add_argument('--lr_g', default=0.01, type=float,
+                        help='Learning rate to use for the group specific models')
+    parser.add_argument('--lr_j', default=0.01, type=float,
+                        help='Learning rate to use for the joint classifier.')
     parser.add_argument('--batch_size', default=32, type=int,
                         help='Minibatch size.')
 

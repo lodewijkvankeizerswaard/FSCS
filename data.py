@@ -385,9 +385,9 @@ class CivilDataset(data.Dataset):
 
 
 
-def get_train_validation_set(dataset:str, root="data/"):
+def get_train_validation_set(dataset:str, root="data/", attribute=""):
     # TODO add docstring
-    # TODO add civil comments, chexpert, celeba
+    # TODO add attribute passthrough to dataset objects
     if dataset == "adult":
         train = AdultDataset(root, split="train")
         val = None
