@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 # Dataset attribute selection. Please make sure that the column name and column values are correct.
 CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
-ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
+ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Female',' Male']}
 CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
 CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
 # ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
