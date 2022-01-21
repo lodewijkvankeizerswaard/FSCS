@@ -77,14 +77,13 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
     loss_module = nn.BCELoss()
 
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
-    best_accuracy = 0
     for epoch in tqdm(range(epochs), position=0, desc="epoch", disable=progress_bar):
         model.train()
 
         # Group specific training
         group_correct, group_total = 0, 0
         group_loss = 0
-        for x, t, d in tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar):
+        for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar)):
             x = x.to(device)
             t = t.to(device)
             d = d.to(device)
@@ -100,13 +99,15 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             group_total += len(x)
             group_loss += group_specific_loss
 
+            writer.add_scalar("train/batch/group_loss", group_specific_loss, i)
+
         writer.add_scalar("train/group_loss", group_loss, epoch)
         writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
         feature_loss, joint_loss = 0, 0
-        for x, t, d in tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar):
+        for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar)):
             x = x.to(device)
             t = t.to(device).squeeze()
             d = d.to(device)
@@ -134,6 +135,9 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
+
+            writer.add_scalar("train/batch/joint_loss", L_0)
+            writer.add_scalar("train/batch/reg_loss", L_R)
         
         writer.add_scalar("train/joint_acc", joint_correct / joint_total, epoch)
         writer.add_scalar("train/joint_loss", joint_loss, epoch)
