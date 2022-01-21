@@ -84,6 +84,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
         # Group specific training
         group_correct, group_total = 0, 0
+        group_loss = 0
         for x, t, d in tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar):
             x = x.to(device)
             t = t.to(device)
@@ -98,11 +99,14 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
             group_correct += num_correct_predictions(pred_group_spe, t)
             group_total += len(x)
+            group_loss += group_specific_loss
 
-        writer.add_scalar(checkpoint_name + "/group_acc", group_correct / group_total, epoch)
+        writer.add_scalar("train/group_loss", group_loss, epoch)
+        writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
+        feature_loss, joint_loss = 0, 0
         for x, t, d in tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar):
             x = x.to(device)
             t = t.to(device).squeeze()
@@ -132,10 +136,12 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
         
+        writer.add_scalar("train/joint_acc", joint_correct / joint_total, epoch)
+        writer.add_scalar("train/joint_loss", joint_loss, epoch)
+        writer.add_scalar("train/feat_loss", feature_loss, epoch)
+        
         if val_loader:
             pass
-
-        writer.add_scalar(checkpoint_name + "/joint_acc", joint_correct / joint_total, epoch)
     
     # Save best model and return it.
     torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
