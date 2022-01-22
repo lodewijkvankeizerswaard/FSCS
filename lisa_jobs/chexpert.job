@@ -2,14 +2,15 @@
 
 #SBATCH --partition=gpu_shared_course
 #SBATCH --gres=gpu:0
-#SBATCH --job-name=InstallEnvironment
+#SBATCH --job-name=CheXpert6
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=3
-#SBATCH --time=12:00:00
+#SBATCH --cpus-per-task=6
+#SBATCH --time=24:00:00
 #SBATCH --mem=32000M
 #SBATCH --output=slurm_output_CHEXPERT_%A.out
 
 DATASET="chexpert"
+LR=0.001
 
 module purge
 module load 2021
@@ -20,4 +21,4 @@ source activate FSCS
 # Copy dataset
 cp -r data/$DATASET $TMPDIR/$DATASET
 
-srun python -u train_model.py --dataset $DATASET --lr 0.0001 --batch_size 32 --epochs 10 --dataset_root $TMPDIR
+srun python -u train_model.py --dataset $DATASET --lr_f $LR --lr_g $LR --lr_j $LR --batch_size 32 --epochs 10 --dataset_root $TMPDIR --num_workers 6
