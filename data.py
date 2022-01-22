@@ -222,9 +222,9 @@ class CheXpertDataset(data.Dataset):
 
         # Get the image
         filename = df.iloc[i]['Path']
-        img = Image.open(os.path.join(self._datapath, filename))
+        img = Image.open(os.path.join(self._datapath, filename)).resize((224,224))
 
-        x = self._transfrom(img).resize((224,224)).repeat(3,1,1)
+        x = self._transfrom(img).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
