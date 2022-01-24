@@ -140,7 +140,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
             # Calculate L_0 and L_R
             L_0 = loss_module(pred_joint, t)
-            L_R = loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t)
+            L_R = LAMBDA * loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t)
 
             # Add L_R to the feature extractor gradients (but not to the joint classifier)
             feature_extractor_optimizer.zero_grad()
