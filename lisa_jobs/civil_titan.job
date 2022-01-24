@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=CivilTitan
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=3
 #SBATCH --time=48:00:00
 #SBATCH --mem=64000M
 #SBATCH --output=slurm_output_CIVIL_%A.out
@@ -23,4 +23,4 @@ source activate FSCS
 # Copy dataset
 cp -r data/$DATASET $TMPDIR/$DATASET
 
-srun python -u train_model.py --dataset $DATASET --lr_f $LR_F --lr_g $LR_G --lr_j $LR_J --batch_size 64 --epochs 20 --dataset_root $TMPDIR --num_workers 6
+srun python -u train_model.py --dataset $DATASET --lr_f $LR_F --lr_g $LR_G --lr_j $LR_J --batch_size 64 --epochs 20 --dataset_root $TMPDIR --num_workers 3
