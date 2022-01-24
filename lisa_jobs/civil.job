@@ -1,15 +1,18 @@
 #!/bin/bash
 
-#SBATCH --partition=gpu_titanrtx_shared_course
-#SBATCH --gres=gpu:0
-#SBATCH --job-name=CivilTitan
+#SBATCH --partition=gpu_shared_course
+#SBATCH --gres=gpu:1
+#SBATCH --job-name=CivilReg
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=3
 #SBATCH --time=48:00:00
-#SBATCH --mem=32000M
+#SBATCH --mem=64000M
 #SBATCH --output=slurm_output_CIVIL_%A.out
 
 DATASET="civil"
+LR_F=0.001
+LR_G=0.001
+LR_J=0.001
 
 module purge
 module load 2021
@@ -20,4 +23,4 @@ source activate FSCS
 # Copy dataset
 cp -r data/$DATASET $TMPDIR/$DATASET
 
-srun python -u train_model.py --dataset $DATASET --lr 0.0001 --batch_size 64 --epochs 10 --dataset_root $TMPDIR
+srun python -u train_model.py --dataset $DATASET --lr_f $LR_F --lr_g $LR_G --lr_j $LR_J --batch_size 32 --epochs 20 --dataset_root $TMPDIR

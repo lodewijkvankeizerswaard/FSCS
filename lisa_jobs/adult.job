@@ -10,6 +10,9 @@
 #SBATCH --output=slurm_output_ADULT_%A.out
 
 DATASET="adult"
+LR_F=0.001
+LR_G=0.001
+LR_J=0.001
 
 module purge
 module load 2021
@@ -20,4 +23,4 @@ source activate FSCS
 # Copy dataset
 cp -r data/$DATASET $TMPDIR/$DATASET
 
-srun python -u train_model.py --dataset $DATASET --lr 0.0001 --batch_size 32 --epochs 20 --dataset_root $TMPDIR
+srun python -u train_model.py --dataset $DATASET --lr_f $LR_F --lr_g $LR_G --lr_j $LR_J --batch_size 32 --epochs 20 --dataset_root $TMPDIR
