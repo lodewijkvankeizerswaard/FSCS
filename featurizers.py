@@ -44,7 +44,8 @@ class AdultFeaturizer(nn.Module):
         )
 
     def forward(self, x):
-        return self.model(x)
+        output = self.model(x)
+        return output
 
 
 class CelebAFeaturizer(nn.Module):
@@ -60,12 +61,7 @@ class CelebAFeaturizer(nn.Module):
 class CivilFeaturizer(nn.Module):
     def __init__(self):
         super(CivilFeaturizer, self).__init__()
-        # Using the configuration with a model
-        # config = torch.hub.load('huggingface/pytorch-transformers', 'config', 'bert-base-uncased')
-        # config.output_attentions = True
-        # config.output_hidden_states = True
         bert = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
-        # bert = drop_classification_layer(bert)
 
         bert.classifier = nn.Sequential(
             nn.Linear(768, NODE_SIZE),
@@ -74,7 +70,7 @@ class CivilFeaturizer(nn.Module):
         self.bert = bert
 
     def forward(self, x):
-        output = self.bert(x)[0]
+        output = self.bert(**x)[0]
         return output
 
 

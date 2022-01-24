@@ -6,11 +6,26 @@ import os
 from tqdm import tqdm
 import argparse
 
+from transformers import data
+
 from data import get_train_validation_set, get_test_set
 from model import FairClassifier
 from torch.utils.tensorboard import SummaryWriter
 
 LAMBDA = 0.7 
+
+tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
+
+
+def bert_collate(data_batch):
+    x, t, d = [], [], []
+    for modality, target, attribute in data_batch:
+        x.append(modality)
+        t.append(target)
+        d.append(attribute)
+
+    bert_input = tokenizer(x, padding=True, truncation=True, return_tensors='pt')
+    return bert_input, torch.Tensor([t]).T, torch.Tensor([d]).T
 
 def set_seed(seed: int):
     """
@@ -218,6 +233,10 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
     hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
 
+
+    collate_fn = bert_collate if dataset == "civil" else None
+
+
     checkpoint_path = os.path.join("models", checkpoint_name)
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
@@ -228,8 +247,8 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     else:
         # Load the dataset with the given parameters, initialize the model and start training
         train_set, val_set = get_train_validation_set(dataset, root=dataset_root, attribute=attribute)
-        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers) if val_set else None
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
+        val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn) if val_set else None
 
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
         model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, epochs,

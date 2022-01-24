@@ -326,13 +326,13 @@ class CivilDataset(data.Dataset):
         index_list = list(self._partition_table.index.values)
         self._alldata_table = self._alldata_table.iloc[index_list]
         self._alldata_table = self._alldata_table[self._alldata_table['christian'].notna()]
+        self._alldata_table.sort_values(by="comment_text", key=lambda x: x.str.len())
 
 
         probs = self._attr_ratio(self._alldata_table)
         self._attr_dist = torch.distributions.Categorical(probs = probs)
 
         self._transform = transforms.ToTensor()
-        self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')    # Download vocabulary from S3 and cache.
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
@@ -375,13 +375,10 @@ class CivilDataset(data.Dataset):
         df = self._alldata_table
 
         x = df.iloc[i]['comment_text']
-        if df.iloc[i]['toxicity'] >= 0.5:
-            t = torch.Tensor([1])
-        else:
-            t = torch.Tensor([0])
-        d = torch.Tensor([int(df.iloc[i]['christian'] == 1)])
-        x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
-        return x.squeeze(), t, d
+        t = int(df.iloc[i]['toxicity'] >= 0.5)
+        d = int(df.iloc[i]['christian'] == 1)
+        # x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
+        return x, torch.Tensor([t]), torch.Tensor([d])
 
 
 
