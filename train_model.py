@@ -127,7 +127,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
-        feature_loss, joint_loss = 0, 0
+        L_0_total, L_R_total = 0, 0
         for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar)):
             x = x.to(device)
             t = t.to(device).squeeze()
@@ -156,13 +156,16 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             
             joint_correct += num_correct_predictions(pred_joint, t)
             joint_total += len(x)
+            
+            L_0_total += L_0
+            L_R_total += L_R
 
-            writer.add_scalar("train/batch/joint_loss", L_0, i + epoch * nr_batches)
-            writer.add_scalar("train/batch/reg_loss", L_R, i + epoch * nr_batches)
+            writer.add_scalar("train/batch/L_0", L_0, i + epoch * nr_batches)
+            writer.add_scalar("train/batch/L_R", L_R, i + epoch * nr_batches)
         
         writer.add_scalar("train/joint_acc", joint_correct / joint_total, epoch)
-        writer.add_scalar("train/joint_loss", joint_loss, epoch)
-        writer.add_scalar("train/feat_loss", feature_loss, epoch)
+        writer.add_scalar("train/L_0", L_0_total, epoch)
+        writer.add_scalar("train/L_R", L_R_total, epoch)
         
         if val_loader:
             pass
@@ -176,7 +179,7 @@ def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) ->
     count = (predictions == targets.squeeze()).sum()
     return count.item()
 
-def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, device: torch.device, seed: int, progress_bar: bool, writer: torch.utils.tensorboard.SummaryWriter) -> float:
+def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, device: torch.device, seed: int, progress_bar: bool) -> float:
     """
     Tests a trained model on the test set.
 
@@ -206,8 +209,6 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
             total_samples += len(x)
 
     avg_accuracy = num_correct / total_samples
-
-    writer.add_scalar("test/acc", avg_accuracy)
     
     return avg_accuracy
 
@@ -256,7 +257,7 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    test_results = test_model(model, test_loader, device, seed, progress_bar, writer)
+    test_results = test_model(model, test_loader, device, seed, progress_bar)
 
     writer.add_hparams(hparams, {"test_acc": test_results})
     writer.close()
