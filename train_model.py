@@ -252,6 +252,8 @@ def test_metrics(model: nn.Module, dataset: str, taus: np.array, batch_size: int
                 
                 pred_joint, _, _ = model.forward(x)
 
+                pred_joint = pred_joint.cpu()
+
                 num_correct, num_classified, tp, fp, M = evaluation_statistics(x, pred_joint, t, d, tau)
                 total_correct += num_correct
                 total_classified += num_classified
@@ -329,11 +331,11 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     # test metrics
     test_accuracies, test_coverages, test_precisions, M = test_metrics(model, dataset, taus, batch_size, device, seed, dataset_root, progress_bar)
     test_auc = accuracy_coverage_plot(test_accuracies, test_coverages)
-    test_precision = precision_coverage_plot(test_precisions[0], test_precisions[1], test_coverages)
+    # test_precision = precision_coverage_plot(test_precisions[0], test_precisions[1], test_coverages)
 
     print("Area under the accuracy curve is:", test_auc)
-    print("Area between the precision curves is:", test_precision)
-    return test_results, test_auc, test_precision
+    # print("Area between the precision curves is:", test_precision)
+    return test_results, test_auc
 
 if __name__ == '__main__':
     # Command line arguments
