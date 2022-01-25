@@ -1,169 +1,140 @@
-import math
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from model import *
-from train_model import *
-from data import *
-
-def softmax(x):
-    """Takes the data as input and returns the softmax response."""
-    b = max(x) 
-    return (math.e**(x - b)) / sum(math.e**(x - b))
 
 def confidence_score(x):
-    """Takes the data as input and returns its confidence score."""
-    s = softmax(x)
-    return 0.5 * math.log(s / (1 - s))
+    return 0.5 * np.log(x / (1 - x))
 
-def margin(x, prediction, label):
-    """Takes the data, its prediction and its label as input and returns the 
-    value for its margin."""
-    if prediction == label:
-        return confidence_score(x)
+def margin(prediction: torch.Tensor, target: torch.Tensor) -> float:
+    """
+    Compares the prediction and the target for the calculation of the margin 
+    for a datapoint.
+    Args:
+        prediction: the prediction of a specific datapoint.
+        target: the corresponding correct target for the prediction.
+    Returns:
+        margin: The margin value for the corresponding datapoint.
+    """
+    if prediction == target:
+        margin = confidence_score(prediction) 
     else:
-        return -confidence_score(x)
-
-def plot_margin(M):
-    """Takes the margin values as input and plots its histogram."""
-    bins = int(np.sqrt(len(M)))
-    plt.hist(M, bins=bins)
+        margin = -confidence_score(prediction)
+    return margin
+       
+def plot_margin(M_0: list, M_1: list):
+    """
+    Plots the margin distributions for two groups.
+    Args:
+        M_0: The margin values for Group 0.
+        M_1: The margin values for Group 1.
+    """
+    # bins = int(np.sqrt(len(M_0)))
+    bins = 1000
+    plt.hist(M_0, bins, alpha=0.5, label='Group 0')
+    plt.hist(M_1, bins, alpha=0.5, label='Group 1')
+    plt.legend(loc="upper left")
     plt.show()
 
-def evaluation_statistics(data, tau, model):
-    """Calculates the coverage based on the threshold tau."""
-    correct, incorrect = 0, 0, 0
-    
-    for batch, label in data:
-        prediction = model(batch)
-        if margin(batch, prediction, label) >= tau: 
-            correct += 1
-        elif margin(batch, prediction, label) <= -tau:
-            incorrect += 1
-        # elif :
-        #     fp += 1
-    
-    accuracy = correct / (correct + incorrect)
-    # precision = correct / (correct + fp)
-    coverage = (correct + incorrect) / len(data)
-    
-    return accuracy, coverage
+def evaluation_statistics(data, predictions: torch.Tensor, targets: torch.Tensor, d: torch.Tensor, tau: float):
+    """
+    Calculates the statistics necessary for evaluation.
+    Args:
+        data: The test dataset that is evaluated.
+        predictions: The predictions made for the test dataset.
+        targets: The corresponding correct targets for the predictions.
+        d: The group the datapoints corresponds to.
+        tau: The threshold for abstaining predictions.
+    Returns:
+        num_correct: The number of correct classified datapoints.
+        num_classified: The total number of classified datapoints.
+        true_pos: The amount of true positives.
+        false_pos: The amount of false positives.
+        M: The margin values for Group 0 and Group 1.
+    """
+    num_correct_0, num_incorrect_0, num_correct_1, num_incorrect_1 = 0, 0, 0, 0 
+    tp_0, fp_0, tp_1, fp_1 = 0, 0, 0, 0
+    M_0, M_1 = [], []
 
-def area_under_curve(x, y):
-    """Takes lists of x and y coordinates as input and calculates the area under
-    the curve."""
-    return auc(x, y)
+    for i in range(len(data)):
+        marg = margin(predictions[i], targets[i])
 
-def average_acc_cov(area1, area2):
-    """Takes the area under two curves as input and returns its average.1"""
+        # correct predictions
+        if marg >= tau and d[i] == 0:
+            M_0.append(marg)
+            num_correct_0 += 1
+
+        elif marg >= tau and d[i] == 1:
+            M_1.append(marg)
+            num_correct_1 += 1
+            
+        # incorrect predictions
+        elif marg <= -tau and d[i] == 0:
+            M_0.append(marg)   
+            num_incorrect_0 += 1  
+        elif marg <= -tau and d[i] == 1:
+            M_1.append(marg)
+            num_incorrect_1 += 1
+        
+    num_correct = num_correct_0 + num_correct_1
+    num_incorrect = num_incorrect_0 + num_incorrect_1
+    num_classified = num_correct + num_incorrect
+    
+    true_pos = [tp_0, tp_1]
+    false_pos = [fp_0, fp_1]
+    M = [M_0, M_1]
+    
+    return num_correct, num_classified, true_pos, false_pos, M 
+
+def average_acc_cov(area1: float, area2: float) -> float:
     return (area1 + area2).mean()
 
-def area_between_curves(area1, area2):
-    """Takes the areas under two curves as input and calculates the area between
-    the two curves."""
+def area_between_curves(area1: float, area2: float) -> float:
     return abs(area1 - area2)
 
-def accuracy_coverage_plot(data, taus, model):
-    accuracy, coverage = [], []
-    for tau in taus:
-        acc, cov = evaluation_statistics(data, tau, model)
-        accuracy.append(acc)
-        coverage.append(cov)
-    
-    plt.plot(accuracy, coverage)
-    plt.xlabel('coverage')
-    plt.ylabel('accuacy')
-    plt.show()
-    
-    return area_under_curve(accuracy, coverage)
+def accuracy_coverage_plot(accuracies: list, coverages: list):
+    """
+    Plots the accuracy vs. the coverage.
+    Args:
+        accuracies: List of accuracies depending on different values of tau.
+        coverages: The corresponding coverages for the accuracies.
+    Returns:
+        area_under_curve: The area under the accuracy-coverage curve.
+    """
+    accuracies.reverse()
+    coverages.reverse()
 
-def precision_coverage_plot(data, taus, model):
-    precision, coverage = [], []
-    for tau in taus:
-        _, prec, cov = evaluation_statistics(data, tau, model)
-        precision.append(prec)
-        coverage.append(cov)
-    
-    plt.plot(precision, coverage)
+    plt.plot(coverages, accuracies)
+    plt.xlabel('coverage')
+    plt.ylabel('accuracy')
+    plt.ylim([0.4, 1.01])
+    plt.xlim([0.15, 1.0])
+    plt.show()
+    return auc(coverages, accuracies)
+
+def precision_coverage_plot(precisions_0: list, precisions_1: list, coverages: list):
+    """
+    Plots the precision vs. the coverage for Group 0 and Group 1.
+    Args:
+        precisions_0: The precision values for Group 0.
+        precisions_1: The precision values for Group 1.
+        coverages: The corresponding coverages for the precisions.
+    Returns:
+        area_between_curves: The area between the two precision-coverage curves.
+    """
+    coverages.reverse()
+    precisions_0.reverse()
+    precisions_1.reverse()
+
+    plt.plot(coverages, precisions_0, label='Group 0')
+    plt.plot(coverages, precisions_1, label='Group 1')
+    plt.legend(loc='upper left')
+    plt.ylim([0.4, 1.01])
+    plt.xlim([0.15, 1.0])
     plt.xlabel('coverage')
     plt.ylabel('precision')
     plt.show()
 
-# def PDF(M):
-#     """Estimates the probability density function based on the margin values."""
-#     #TODO: tau moet als input.
-    
-#     M = np.sort(M)
-#     plt.hist(M, bins=3, density=True)
-#     plt.plot(M, norm.pdf(M))
-#     plt.show()
-
-# def CDF(M):
-#     #TODO: tau als input. 
-#     M = np.sort(M)
-#     return norm.cdf(M)
-
-# def condCDF(tau):
-#     pass
-
-# def selective_accuracy(tau):
-#     """Takes the threshold tau as input and returns the selective accuracy."""
-#     return (1 - CDF(tau)) / (CDF(-tau) + 1 - CDF(tau))
-
-# def selective_precision(tau):
-#     """Takes the threshold tau as input and returns the selective precision.""" 
-#     return (1 - condCDF(tau)) / (condCDF(-tau) + 1 - condCDF(tau))
-
-def test_model(model: nn.Module, dataset: str, batch_size: int, device: torch.device, seed: int, dataset_root: str, progress_bar: bool):
-    """
-    Tests a trained model on the test set.
-    Args:
-        model: Model architecture to test.
-        dataset: Specify dataset where test_set is loaded from.
-        batch_size: Batch size to use in the test.
-        device: Device to use for training.
-        seed: The seed to set before testing to ensure a reproducible test.
-    Returns:
-        test_results: The average accuracy on the test set (independent of the attribute).
-    """
-
-    set_seed(seed)
-    test_set = get_test_set(dataset, root=dataset_root)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
-                                                shuffle=True, num_workers=3)
-
-    num_correct = 0
-    total_samples = 0 
-    with torch.no_grad():
-        for x, t, _ in tqdm(test_loader, desc="test", disable=progress_bar):
-            x = x.to(device)
-            t = t.to(device).squeeze()
-
-            pred_joint, _, _ = model.forward(x)
-            
-            num_correct += num_correct_predictions(pred_joint, t)
-            total_samples += len(x)
-
-    avg_accuracy = num_correct / total_samples
-    
-    return avg_accuracy
-
-if __name__ == "__main__":
-    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-    
-    batch_size = 32
-    seed = 42
-    dataset_root = "data"
-
-    dataset = 'adult'
-    checkpoint_name = dataset + '.pt'
-    checkpont_path = os.path.join("models", checkpoint_name)
-    
-    model = get_model(dataset)
-    #model = FairClassifier(dataset, nr_attr_values=len(ADULT_ATTRIBUTE['values']))
-    model = model.load_state_dict(torch.load(checkpont_path))
-    
-    progress_bar = False
-    test_model(model, dataset, batch_size, device, seed, dataset_root, progress_bar)
-    
-    #accuracy_coverage_plot(data, taus, model)
+    area_0 = auc(coverages, precisions_0)
+    area_1 = auc(coverages, precisions_1)
+    return area_between_curves(area_0, area_1)
