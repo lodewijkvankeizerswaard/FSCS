@@ -196,83 +196,50 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
 
     set_seed(seed)
 
-    num_correct = 0
-    total_samples = 0 
+    # Get the model predictions
+    predictions = []
+    targets = []
+    attributes = []
     with torch.no_grad():
         model.eval()
-        for x, t, _ in tqdm(test_loader, desc="test", disable=progress_bar):
+        for x, t, d in tqdm(test_loader, desc="test", disable=progress_bar):
             x = x.to(device)
             t = t.to(device).squeeze()
 
             pred_joint, _, _ = model.forward(x)
-            
-            num_correct += num_correct_predictions(pred_joint, t)
-            total_samples += len(x)
 
-    avg_accuracy = num_correct / total_samples
-    
-    return avg_accuracy
+            # Save predictions and targets for further evaluation
+            predictions.append(pred_joint.cpu())
+            targets.append(t.cpu())
+            attributes.append(d.cpu())
 
-
-def test_metrics(model: nn.Module, dataset: str, taus: np.array, batch_size: int, device: torch.device, seed: int, dataset_root: str, progress_bar: bool):
-    """
-    Tests a trained model on the test set.
-
-    Args:
-        model: Model architecture to test.
-        dataset: Specify dataset where test_set is loaded from.
-        taus: Values for tau, the threshold for abstaining predictions.
-        batch_size: Batch size to use in the test.
-        device: Device to use for training.
-        seed: The seed to set before testing to ensure a reproducible test.
-    Returns:
-        accuracies:
-        coverages:
-        precisions:
-        margins:
-        test_results: The average accuracy on the test set (independent of the attribute).
-    """
-
-    set_seed(seed)
-    test_set = get_test_set(dataset, root=dataset_root)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
-                                                shuffle=True, num_workers=3)
-
+    # Compute accuracy and coverage
+    taus = np.arange(0, 2.5, step=0.1)
     coverages, accuracies, precisions_0, precisions_1 = [], [], [], []
     for tau in taus:
         total_correct, total_classified, total_samples = 0, 0, 0
         true_p_0, false_p_0, true_p_1, false_p_1 = 0, 0, 0, 0 
         M_0, M_1 = [], []
 
-        with torch.no_grad():
-            for x, t, d in tqdm(test_loader, desc="test", disable=progress_bar):
-                x = x.to(device)
-                t = t.to(device).squeeze()
-                d = d.to(device)
-                
-                pred_joint, _, _ = model.forward(x)
+        for t, p, d in zip(targets, predictions, attributes):
+            num_correct, num_classified, tp, fp, M = evaluation_statistics(p, t, d, tau)
+            total_correct += num_correct
+            total_classified += num_classified
+            total_samples += len(t)
 
-                pred_joint = pred_joint.cpu()
+            # true_p_0 += tp[0]
+            # true_p_1 += tp[1]
+            # false_p_0 += fp[0]
+            # false_p_1 += fp[1]
 
-                num_correct, num_classified, tp, fp, M = evaluation_statistics(x, pred_joint, t, d, tau)
-                total_correct += num_correct
-                total_classified += num_classified
-                total_samples += len(x)
-                
-                true_p_0 += tp[0]
-                true_p_1 += tp[1]
-                false_p_0 += fp[0]
-                false_p_1 += fp[1]
+            M_0.extend(M[0])
+            M_1.extend(M[1])
 
-                M_0.extend(M[0])
-                M_1.extend(M[1])
-
-        precisions_0.append(true_p_0 / (true_p_0 + false_p_0))
-        precisions_1.append(true_p_1 / (true_p_1 + false_p_1))
         accuracies.append(total_correct / total_classified)
         coverages.append(total_classified / total_samples)
-    
-    print(accuracies, coverages)
+
+    print("Accuracies: ", accuracies)
+    print("Coverage: ", coverages)
     print(precisions_0, precisions_1)
     return accuracies, coverages, [precisions_0, precisions_1], [M_0, M_1]
 
@@ -321,21 +288,21 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    test_results = test_model(model, test_loader, device, seed, progress_bar)
+    test_accuracies, test_coverages, test_precisions, M = test_model(model, test_loader, device, seed, progress_bar)
 
-    writer.add_hparams(hparams, {"test_acc": test_results})
+    # writer.add_hparams(hparams, {"test_acc": test_results})
     writer.close()
 
-    print("Accuracy on the test set:", test_results)
+    # print("Accuracy on the test set:", test_results)
 
     # test metrics
-    test_accuracies, test_coverages, test_precisions, M = test_metrics(model, dataset, taus, batch_size, device, seed, dataset_root, progress_bar)
+    # test_accuracies, test_coverages, test_precisions, M = test_metrics(model, dataset, taus, batch_size, device, seed, dataset_root, progress_bar)
     test_auc = accuracy_coverage_plot(test_accuracies, test_coverages)
     # test_precision = precision_coverage_plot(test_precisions[0], test_precisions[1], test_coverages)
 
     print("Area under the accuracy curve is:", test_auc)
     # print("Area between the precision curves is:", test_precision)
-    return test_results, test_auc
+    return test_auc
 
 if __name__ == '__main__':
     # Command line arguments
