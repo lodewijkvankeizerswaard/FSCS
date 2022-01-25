@@ -38,7 +38,7 @@ def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes
     margins = {int(d[0]):margin(p, t) for p, t, d in zip(pred_split, tar_split, d_split)}
     return margins
        
-def plot_margin(margins: dict) -> matplotlib.figure.Figure:
+def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     """
     Plots the margin distributions for two groups.
     Args:
@@ -50,7 +50,6 @@ def plot_margin(margins: dict) -> matplotlib.figure.Figure:
     for g, m in margins.items():
         ax.hist(m.numpy().flatten(), bins='auto', density=True, alpha=0.5, label='Group ' + str(g))
     ax.set_xlabel(r'$\kappa (x)$')
-
     ax.legend(loc="upper left")
     return fig
 

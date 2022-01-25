@@ -1,12 +1,11 @@
 import torch
 from torch import nn
 import numpy as np
+import sklearn as sk
 
 import os
 from tqdm import tqdm
 import argparse
-
-from transformers import data
 
 from data import get_train_validation_set, get_test_set
 from model import FairClassifier
@@ -196,11 +195,10 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
 
     set_seed(seed)
 
-    # Get the model predictions and group specific margins
+    # Get the model predictions
     predictions = []
     targets = []
     attributes = []
-    
     with torch.no_grad():
         model.eval()
         for x, t, d in tqdm(test_loader, desc="test", disable=progress_bar):
@@ -223,21 +221,31 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     targets = torch.cat(targets)
     attributes = torch.cat(attributes)
 
-    M = margin_group(predictions, targets, attributes)
-
-    max_tau = torch.max(torch.abs(torch.cat(list(M.values())))).item()
-
-    taus = np.arange(0, max_tau, step=0.1)
-    
+    # Compute overal margin and AUC statistics
     CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
     CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
     CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
-    
-    A = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in M.items()}
-    C = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in M.items()}
-    P = None
 
-    return M, A, C, P
+    M = margin(predictions.clone(), targets) # .clone() to prevent inplace modification
+    max_tau = torch.max(torch.abs(M)).item()
+    taus = np.arange(0, max_tau, step=0.1)
+
+    A = [CDF_correct(M, tau) / CDF_covered(M, tau) if CDF_covered(M, tau) > 0 else 1 for tau in taus]
+    C = [CDF_covered(M, tau) for tau in taus]
+    area_under_curve = sk.metrics.auc(C, A)
+
+    # Compute group specific margins and accuracies
+    M_group = margin_group(predictions, targets, attributes)
+    A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in M_group.items()}
+    C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in M_group.items()}
+    P_group = None
+
+    margin_plot = plot_margin_group(M_group)
+    ac_plot = accuracy_coverage_plot(A_group, C_group)
+
+    area_between_curves_val = 0
+
+    return area_under_curve, area_between_curves_val, margin_plot, ac_plot
 
 def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, taus: np.array, dataset_root:str, progress_bar: bool):
     """
@@ -284,11 +292,9 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    test_margins, test_accuracies, test_coverages, test_precisions = test_model(model, test_loader, device, seed, progress_bar)
+    area_under_curve, area_between_curves_val, margin_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
 
-    # writer.add_hparams(hparams, {"test_acc": test_results}) 
-    margin_plot = plot_margin(test_margins)
-    ac_plot = accuracy_coverage_plot(test_accuracies, test_coverages)
+    writer.add_hparams(hparams, {"auc": area_under_curve, "abc": area_between_curves_val}) 
     writer.add_figure(checkpoint_name[:-3] + '_margin', margin_plot)
     writer.add_figure(checkpoint_name[:-3] + '_ac', ac_plot)
     writer.close()
@@ -309,11 +315,11 @@ if __name__ == '__main__':
     # Optimizer hyperparameters
     parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"],
                         help='The optimizer to use. Available options are: sgd, adam')
-    parser.add_argument('--lr_f', default=0.01, type=float,
+    parser.add_argument('--lr_f', default=0.001, type=float,
                         help='Learning rate to use for the featurizer')
-    parser.add_argument('--lr_g', default=0.01, type=float,
+    parser.add_argument('--lr_g', default=0.001, type=float,
                         help='Learning rate to use for the group specific models')
-    parser.add_argument('--lr_j', default=0.01, type=float,
+    parser.add_argument('--lr_j', default=0.001, type=float,
                         help='Learning rate to use for the joint classifier.')
     parser.add_argument('--batch_size', default=32, type=int,
                         help='Minibatch size.')
