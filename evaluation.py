@@ -1,7 +1,11 @@
+import matplotlib
+from matplotlib import rc
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
+
+rc('text', usetex=True)
 
 def confidence_score(x):
     return 0.5 * np.log(x / (1 - x))
