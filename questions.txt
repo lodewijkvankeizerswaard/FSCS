@@ -24,6 +24,23 @@ Altijd SELU gebruiken na featurerizen? Ook voor pre-defined models
     - Je moet altijd iets hebben om Phi te representeren. Dit betekend niet dat dat altijd FC + SELU is, en je moet dus per dataset/task lezen wat ze hebben gedaan.
     
     
-Sessie 2:
+Sessie 3:
 
 Hoe zou je het model kunnen ontwerpen om met continuous protected variables om te gaan?
+
+# Week 2 meeting Dimitiris
+- Get rid of undecided in CheXpert
+- Do not focus on the baseline
+- Running the experiment on different hardware setups 
+- difficulty finding hyperparameters is also part of the paper
+
+# Week 3 Meeting 1
+
+- Can we switch model description with datasets in the report?
+
+
+Sessie 4:
+
+BERT input 512 tokens voor civil comments?
+Binary attributes almost done:
+    Categorical attributes evaluation (Compare model against baseline)

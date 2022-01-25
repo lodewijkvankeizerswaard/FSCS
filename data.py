@@ -4,9 +4,10 @@ import pandas as pd
 import numpy as np
 import torch.utils.data as data
 import zipfile
-import gdown
+# import gdown
 from PIL import Image
 from torchvision import transforms
+from tqdm import tqdm
 
 
 # TODO add Civil Comments dataset object
@@ -14,7 +15,9 @@ from torchvision import transforms
 
 # Dataset attribute selection. Please make sure that the column name and column values are correct.
 CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
-ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
+ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Female',' Male']}
+CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
+CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
 # ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 # Editing these global variables has a very high chance of breaking the data
@@ -23,7 +26,6 @@ ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-lo
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
-    # TODO add data bias 
     # TODO improve comments
     def __init__(self, root, split="train"):
         datapath = os.path.join(root, "adult")
@@ -41,11 +43,18 @@ class AdultDataset(data.Dataset):
 
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
-
-        # Add missing country to test data
+        probs = self._attr_ratio(table)
         if split == "test":
+            # Add missing country to test data
             table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
-
+        else:
+            # Introduce bias in the train data
+            where_d_zero = set(table[ table[ADULT_ATTRIBUTE['column']] == ADULT_ATTRIBUTE['values'][0] ].index)
+            where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
+            drop_rows = list(where_d_zero & where_y_one)[50:]
+            self._dropped_rows = drop_rows
+            table = table.drop(index=drop_rows)
+        
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
 
@@ -151,17 +160,19 @@ class AdultDataset(data.Dataset):
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
-    # TODO change target to Pleural Effusion
     # TODO image preprocessing
     # TODO improve comments
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         
-        # Read the csv file, and replace all 0's and -1's with nan (to make flags binary)
+        # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
-        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename), na_values=[0,-1])
-        self._table.fillna(0, inplace=True)
+        self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
+
+        # Remove rows with -1's for the attribute value and target value (to make flags binary)
+        self._table = self._table[ self._table[CHEXPERT_ATTRIBUTE['column']].isin(CHEXPERT_ATTRIBUTE['values']) == True ]
+        # TODO Remove rows with -1 target values
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
@@ -211,21 +222,180 @@ class CheXpertDataset(data.Dataset):
 
         # Get the image
         filename = df.iloc[i]['Path']
-        img = Image.open(os.path.join(self._datapath, filename))
+        img = Image.open(os.path.join(self._datapath, filename)).resize((224,224))
 
-        x = self._transfrom(img)[:,:224,:224].repeat(3,1,1)
+        x = self._transfrom(img).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
 
-def get_train_validation_set(dataset:str, root="data/"):
+    
+
+class CelebADataset(data.Dataset):
+    def __init__(self, root, split="train"):
+        self._datapath = os.path.join(root, "celeba")
+        assert os.path.exists(self._datapath), "CelebA dataset not found! Did you run 'get_data.sh'?"
+
+        self.split_filename = "list_eval_partition.txt"
+        self.anno_filename = "list_attr_celeba.txt"
+        self.split_table = pd.read_csv(os.path.join(self._datapath, self.split_filename), sep=" ", header = None, names=["image", "partition"])
+        self.anno_table = pd.read_csv(os.path.join(self._datapath, self.anno_filename), sep=r"\s+", header = 1)
+
+        if split == "train":
+            self.split_table = self.split_table[self.split_table.partition == 0]
+        elif split == "valid":
+            self.split_table = self.split_table[self.split_table.partition == 1]
+        else:
+            self.split_table = self.split_table[self.split_table.partition == 2]
+
+        index_list = list(self.split_table.index.values)
+        self.anno_table = self.anno_table.iloc[index_list]
+
+        probs = self._attr_ratio(self.anno_table)
+        self._attr_dist = torch.distributions.Categorical(probs=probs)
+
+        self.transform = transforms.ToTensor()
+
+    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+        """Finds the ratio in which the attribute occurs in the data set, such that we can later
+        sample from this distribution. 
+
+        Args:
+            table (pd.DataFrame): the table from which to obtain the attribute ratio.
+
+        Returns:
+            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+        """
+        counts = table[CELEBA_ATTRIBUTE['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in CELEBA_ATTRIBUTE['values']])
+        return ratios / sum(ratios) 
+
+    def sample_d(self, size: tuple) -> torch.Tensor:
+        return self._attr_dist.sample(size)
+
+    def datapoint_shape(self) -> torch.Tensor:
+        """Return the amount of elements in each x value
+
+        Returns:
+            int: the amount of elements in x
+        """
+        return self[0][0].shape
+
+    def nr_attr_values(self) -> int:
+        """Returns the number of possible values for the attribute of this dataset.
+
+        Returns:
+            int: the number of attributes
+        """
+        return len(CELEBA_ATTRIBUTE['values'])
+
+    def __len__(self):
+        return len(self.anno_table)
+
+    def __getitem__(self, i):
+        # Alias the dataframe and the evaluation partition
+        df = self.anno_table
+        df_split = self.split_table
+
+
+        # Get the image from the training or test data
+        filename = df_split.iloc[i]["image"]
+        img = Image.open(os.path.join(self._datapath, "img_align_celeba", filename)) 
+
+
+        resized_image = img.resize((224, 224))
+
+        x = self.transform(resized_image)
+        t = torch.Tensor([int(df.iloc[i]['Blond_Hair'] == 1)])
+        d = torch.Tensor([int(df.iloc[i]['Male'] == 1)])
+        return x, t, d
+
+class CivilDataset(data.Dataset):
+    def __init__(self, root, split="train"):
+        self._datapath = os.path.join(root, "civil")
+        assert os.path.exists(self._datapath), "Civil dataset not found! Did you run 'get_data.sh'?"
+
+        # Toxicity values were generated by a team of workers who assessed if a comment was toxic or not. Therefor there 
+        # is not one binary value with toxic or not but a value between 0 and 1. Therefor we decided to set a threshold
+        # at 0.5. All values below 0.5 were classified as 0 (not toxic) and all values above 0.5 were classified as 1
+        self._filename = "train.csv" if split == "train" else "test.csv"
+        self._alldata_filename = "all_data.csv"
+        self._partition_table = pd.read_csv(os.path.join(self._datapath, self._filename))
+        self._alldata_table = pd.read_csv(os.path.join(self._datapath, self._alldata_filename))
+
+        index_list = list(self._partition_table.index.values)
+        self._alldata_table = self._alldata_table.iloc[index_list]
+        self._alldata_table = self._alldata_table[self._alldata_table['christian'].notna()]
+        self._alldata_table.sort_values(by="comment_text", key=lambda x: x.str.len())
+
+
+        probs = self._attr_ratio(self._alldata_table)
+        self._attr_dist = torch.distributions.Categorical(probs = probs)
+
+        self._transform = transforms.ToTensor()
+
+    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+        """Finds the ratio in which the attribute occurs in the data set, such that we can later
+        sample from this distribution. 
+
+        Args:
+            table (pd.DataFrame): the table from which to obtain the attribute ratio.
+
+        Returns:
+            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+        """
+        counts = table[CIVIL_ATTRIBUTE['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in CIVIL_ATTRIBUTE['values']])
+        return ratios / sum(ratios)
+
+    def sample_d(self, size: tuple) -> torch.Tensor:
+        return self._attr_dist.sample(size)
+
+    def datapoint_shape(self) -> torch.Tensor:
+        """Return the amount of elements in each x value
+
+        Returns:
+            int: the amount of elements in x
+        """
+        return self[0][0].shape
+    
+    def nr_attr_values(self) -> int:
+        """Returns the number of possible values for the attribute of this dataset.
+
+        Returns:
+            int: the number of attributes
+        """
+        return len(CIVIL_ATTRIBUTE['values'])
+
+    def __len__(self):
+        return len(self._alldata_table)
+    
+    def __getitem__(self, i):
+        #Alias the dataframe
+        df = self._alldata_table
+
+        x = df.iloc[i]['comment_text']
+        t = int(df.iloc[i]['toxicity'] >= 0.5)
+        d = int(df.iloc[i]['christian'] == 1)
+        # x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
+        return x, torch.Tensor([t]), torch.Tensor([d])
+
+
+
+def get_train_validation_set(dataset:str, root="data/", attribute=""):
     # TODO add docstring
-    # TODO add civil comments, chexpert, celeba
+    # TODO add attribute passthrough to dataset objects
     if dataset == "adult":
         train = AdultDataset(root, split="train")
         val = None
     elif dataset == "chexpert":
         train = CheXpertDataset(root, split="train")
+        val = None
+    elif dataset == "celeba":
+        train = CelebADataset(root, split="train")
+        val = CelebADataset(root, split = "valid")
+    elif dataset == "civil":
+        train = CivilDataset(root, split="train")
         val = None
     else:
         raise ValueError("This dataset is not implemented") 
@@ -238,51 +408,34 @@ def get_test_set(dataset:str, root="data/"):
         test = AdultDataset(root, split="test")
     elif dataset == "chexpert":
         test = CheXpertDataset(root, split="test")
+    elif dataset == "celeba":
+        test = CelebADataset(root, split="test")
+    elif dataset == "civil":
+        test = CivilDataset(root, split="test")
     else:
         raise ValueError("This dataset is not implemented")
     return test
 
-# class CelebA(data.Dataset):
-#     def __init__(self, root, split = "train"):
-#         datapath = root + "/celeba"
-#         assert os.path.exists(datapath), "CelebA dataset not found! Did you run 'get_data.sh'?"
-#
-#         self._filename = "celeba.test" if split == "test" else "adult.data"
-#         self.url = 'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'
 
 
-# def get_celeba(root="data"):
-#     assert 5 == 0, "CelebA cannot be downloaded through pytorch. Please see https://github.com/pytorch/vision/issues/1920"
-#     train = CelebA(root=root, split="train", download=True)
-#     val = CelebA(root=root, split="val", download=True)
-#     test = CelebA(root=root, split="test", download=True)
-#     return (train, val, test)
+def get_civil(root="data"):
+    pass
 
-def get_celeba(root = "data"):
-    data_root = root + "/celeba"
-    dataset_url = 'https://drive.google.com/uc?id=1cNIac61PSA_LqDFYFUeyaQYekYPc75NH'
-    download_path = f'{data_root}/img_align_celeba.zip'
-    dataset_folder = f'{root}/img_align_celeba'
-    if os.path.exists(download_path):
-        print("CelebA dataset already downloaded!")
-        return
-    if not os.path.exists(data_root):
-        os.makedirs(data_root)
-        os.makedirs(dataset_folder)
-    gdown.download(dataset_url, download_path, quiet = False)
-    with zipfile.ZipFile(download_path, 'r') as zip:
-        zip.extractall(dataset_folder)
-
-def preprocess_celeba(img_dir = "data\celeba\img_align_celeba\img_align_celeba"):
-    image_names = os.listdir(img_dir)
-    img_path = os.path.join(img_dir, image_names[0])
-    print(img_path)
-
+def get_chexpert(root="data"):
+    pass
 
 if __name__ == "__main__":
-    dummy = AdultDataset('data', split="train")
-    dummy2 = AdultDataset('data', split='test')
-    print(dummy[3])
-    print(dummy.sample_d((10,10)))
-    print(dummy.datapoint_shape())
-    print(dummy2.datapoint_shape())
+    train_set = CivilDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    for p in tqdm(train_loader):
+        a = p[0]
+    # dummy = AdultDataset('data', split="train")
+    # dummy2 = AdultDataset('data', split='test')
+    # # print(dummy[3])
+    # # print(dummy.sample_d((10,10)))
+    # # print(dummy.datapoint_shape())
+    # # print(dummy2.datapoint_shape())
+
+    # ch1 = CheXpertDataset('data', split="train")
+    # ch2 = CheXpertDataset('data', split="test")

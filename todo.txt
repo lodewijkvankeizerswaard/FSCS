@@ -5,7 +5,7 @@ Adult - 90%
     - Write README
     - Write Dataset object
     - Improve README - TODO
-    - Improve comments- TODO
+    - Improve comments
 CelebA - TODO
     - Write Downloader - TODO
     - Write README - TODO
@@ -23,7 +23,7 @@ CheXpert - 80%
     - Write README
     - Write Dataset object
     - Improve README - TODO
-    - Improve comments- TODO
+    - Improve comments
 
 Data Util Functions - 30%
     - get_train_val - TODO
@@ -57,3 +57,26 @@ Data Util Functions - 30%
     - Look at their basic structure and paper skeleton - TODO
     - Make an overleaf and build the skeleton - TODO
     - Start writing an introduction - TODO
+
+
+# Planning week 2 
+Maandag:
+    - mail auteurs over learning rates, optimizers, (lodewijk) -- DONE
+    - alle voorwaarden voor report gecheckt (tijmen) 
+    - eerste plotje (maura)
+    - boodschappen spar (tijmen) -- DONE
+    - celeba af (fabian)
+
+Dinsdag:
+    - beginnen runnen celeba (tijmen)
+    - civil af (fabian)
+    - data preprocessing report af voor adult en chexpert (lodewijk)
+    - evaulation in report (maura)
+
+Woensdag: 
+    - beginnen met runnen civil (tijmen)
+
+
+Vrijdag:
+    - alle resultaten binnen
+Eind van de week, alle resultaten

@@ -18,9 +18,9 @@ def get_featurizer(dataset_name: str):
         model = CelebAFeaturizer()
         out_features = 2048
 
-    elif dataset_name == 'civilcomments':
-        model = CivilCommentsFeaturizer()
-        out_features = NODE_SIZE
+    elif dataset_name == 'civil':
+        model = CivilFeaturizer()
+        out_features = 80
 
     elif dataset_name == 'chexpert':
         model = CheXPertFeaturizer()
@@ -44,32 +44,34 @@ class AdultFeaturizer(nn.Module):
         )
 
     def forward(self, x):
-        return self.model(x)
+        output = self.model(x)
+        return output
 
 
 class CelebAFeaturizer(nn.Module):
     def __init__(self):
         super(CelebAFeaturizer, self).__init__()
         self.model = models.resnet50(pretrained=True)
+        self.model = drop_classification_layer(self.model)
 
     def forward(self, x):
         return self.model(x)
 
 
-class CivilCommentsFeaturizer(nn.Module):
+class CivilFeaturizer(nn.Module):
     def __init__(self):
-        super(CivilCommentsFeaturizer, self).__init__()
-        bert_model = torch.hub.load(
-            'huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        super(CivilFeaturizer, self).__init__()
+        bert = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
 
-        fc_model = nn.Sequential(
-            nn.Linear(1024, NODE_SIZE),
-            nn.SELU()
+        bert.classifier = nn.Sequential(
+            nn.Linear(768, NODE_SIZE),
+            nn.SELU()   
         )
-        self.model = torch.nn.Sequential(bert_model, fc_model)
+        self.bert = bert
 
     def forward(self, x):
-        return self.model(x)
+        output = self.bert(**x)[0]
+        return output
 
 
 class CheXPertFeaturizer(nn.Module):

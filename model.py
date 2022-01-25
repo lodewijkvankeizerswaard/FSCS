@@ -25,7 +25,7 @@ class FairClassifier(nn.Module):
 
     def split(self, x: torch.Tensor, d: torch.Tensor):
         # Groups x samples based on d-values
-        sorter = torch.argsort(d, dim=1)
+        sorter = torch.argsort(d, dim=0)
         _, counts = torch.unique(d, return_counts=True)
         return sorter, torch.split(torch.squeeze(x[sorter, :]), counts.tolist())
 
