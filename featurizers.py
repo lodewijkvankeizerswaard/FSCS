@@ -83,3 +83,10 @@ class CheXPertFeaturizer(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+
+if __name__ == "__main__":
+    # print(AdultFeaturizer())
+    print(CelebAFeaturizer())
+    # print(CivilFeaturizer())
+    # print(CheXPertFeaturizer())

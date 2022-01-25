@@ -18,7 +18,7 @@ CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
 ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Female',' Male']}
 CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
 CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
-# ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
+# self.attribute = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
@@ -38,6 +38,8 @@ class AdultDataset(data.Dataset):
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
 
+        self.attribute = {'column' : 'sex', 'values' : [' Female',' Male']}
+
         # Remove dots from labels (in test data)
         table['salary'] = table['salary'].str.replace('.', '', regex=False)
 
@@ -49,7 +51,7 @@ class AdultDataset(data.Dataset):
             table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
         else:
             # Introduce bias in the train data
-            where_d_zero = set(table[ table[ADULT_ATTRIBUTE['column']] == ADULT_ATTRIBUTE['values'][0] ].index)
+            where_d_zero = set(table[ table[self.attribute['column']] == self.attribute['values'][0] ].index)
             where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
             drop_rows = list(where_d_zero & where_y_one)[50:]
             self._dropped_rows = drop_rows
@@ -72,10 +74,10 @@ class AdultDataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[ADULT_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in ADULT_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -95,7 +97,7 @@ class AdultDataset(data.Dataset):
             table = table[table[column] != ' ?']
             onehot_colum = pd.get_dummies(table[column], prefix=column)
             table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
-            if column != ADULT_ATTRIBUTE['column']:
+            if column != self.attribute['column']:
                 table = table.drop(columns=column)
         return table
 
@@ -131,7 +133,7 @@ class AdultDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(ADULT_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
 
     def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
@@ -147,15 +149,15 @@ class AdultDataset(data.Dataset):
             tuple: The x value includes all one hot encoded and continous data except for the target 
         value, and the column that contains the non-one hot encoded attribute (since this is only used as a map for d). The t 
         value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
-        the ADULT_ATTRIBUTE['values'] list. This determines the mapping for the group specific model later on.
+        the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
         # Alias the datafram
         df = self._table
         # x is all values, except the target value, and the attribute column
-        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', ADULT_ATTRIBUTE['column']])]
+        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', self.attribute['column']])]
         x = df_x.values[i]
         t = [df.iloc[i]['salary_ >50K']]
-        d = [ ADULT_ATTRIBUTE['values'].index(df.iloc[i][ ADULT_ATTRIBUTE['column'] ])]
+        d = [ self.attribute['values'].index(df.iloc[i][ self.attribute['column'] ])]
         return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
 
 class CheXpertDataset(data.Dataset):
@@ -171,9 +173,10 @@ class CheXpertDataset(data.Dataset):
         self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
 
         # Remove rows with -1's for the attribute value and target value (to make flags binary)
-        self._table = self._table[ self._table[CHEXPERT_ATTRIBUTE['column']].isin(CHEXPERT_ATTRIBUTE['values']) == True ]
+        self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
         # TODO Remove rows with -1 target values
 
+        self.attribute = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
@@ -188,10 +191,10 @@ class CheXpertDataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[CHEXPERT_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in CHEXPERT_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -211,7 +214,7 @@ class CheXpertDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(CHEXPERT_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
     
     def __len__(self):
         return len(self._table)
@@ -241,6 +244,8 @@ class CelebADataset(data.Dataset):
         self.split_table = pd.read_csv(os.path.join(self._datapath, self.split_filename), sep=" ", header = None, names=["image", "partition"])
         self.anno_table = pd.read_csv(os.path.join(self._datapath, self.anno_filename), sep=r"\s+", header = 1)
 
+        self.attribute = {'column' : 'Male', 'values' : [-1, 1]}
+
         if split == "train":
             self.split_table = self.split_table[self.split_table.partition == 0]
         elif split == "valid":
@@ -264,10 +269,10 @@ class CelebADataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[CELEBA_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in CELEBA_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios) 
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -287,7 +292,7 @@ class CelebADataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(CELEBA_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
 
     def __len__(self):
         return len(self.anno_table)
@@ -323,6 +328,7 @@ class CivilDataset(data.Dataset):
         self._partition_table = pd.read_csv(os.path.join(self._datapath, self._filename))
         self._alldata_table = pd.read_csv(os.path.join(self._datapath, self._alldata_filename))
 
+        self.attribute = {'column' : 'christian', 'values' : [0, 1]}
         index_list = list(self._partition_table.index.values)
         self._alldata_table = self._alldata_table.iloc[index_list]
         self._alldata_table = self._alldata_table[self._alldata_table['christian'].notna()]
@@ -342,10 +348,10 @@ class CivilDataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[CIVIL_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in CIVIL_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -365,7 +371,7 @@ class CivilDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(CIVIL_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
 
     def __len__(self):
         return len(self._alldata_table)
