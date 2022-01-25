@@ -36,7 +36,7 @@ def plot_margin(M_0: list, M_1: list):
     plt.legend(loc="upper left")
     plt.show()
 
-def evaluation_statistics(data, predictions: torch.Tensor, targets: torch.Tensor, d: torch.Tensor, tau: float):
+def evaluation_statistics(predictions: torch.Tensor, targets: torch.Tensor, d: torch.Tensor, tau: float):
     """
     Calculates the statistics necessary for evaluation.
     Args:
@@ -56,7 +56,7 @@ def evaluation_statistics(data, predictions: torch.Tensor, targets: torch.Tensor
     tp_0, fp_0, tp_1, fp_1 = 0, 0, 0, 0
     M_0, M_1 = [], []
 
-    for i in range(len(data)):
+    for i in range(len(targets)):
         marg = margin(predictions[i], targets[i])
 
         # correct predictions
