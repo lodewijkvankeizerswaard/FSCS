@@ -55,4 +55,4 @@ The images of the CheXpert data are cropped to 224 by 224 pixels (the bottom and
 
 ## Model Description
 
-
+The model comprises of a featurizer, classifier and regularizer. To handle different types of datasets, the featurization component is [MODULAR]. 
