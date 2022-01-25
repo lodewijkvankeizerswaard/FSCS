@@ -284,19 +284,14 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
     
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    test_accuracies, test_coverages, test_precisions, M = test_model(model, test_loader, device, seed, progress_bar)
+    test_margins, test_accuracies, test_coverages, test_precisions = test_model(model, test_loader, device, seed, progress_bar)
 
-    # writer.add_hparams(hparams, {"test_acc": test_results})
+    # writer.add_hparams(hparams, {"test_acc": test_results}) 
+    margin_plot = plot_margin(test_margins)
+    ac_plot = accuracy_coverage_plot(test_accuracies, test_coverages)
+    writer.add_figure(checkpoint_name[:-3] + '_margin', margin_plot)
+    writer.add_figure(checkpoint_name[:-3] + '_ac', ac_plot)
     writer.close()
-
-    # print("Accuracy on the test set:", test_results)
-
-    test_auc = accuracy_coverage_plot(test_accuracies, test_coverages)
-    # test_precision = precision_coverage_plot(test_precisions[0], test_precisions[1], test_coverages)
-
-    print("Area under the accuracy curve is:", test_auc)
-    # print("Area between the precision curves is:", test_precision)
-    return test_auc
 
 if __name__ == '__main__':
     # Command line arguments
