@@ -6,6 +6,12 @@ from sklearn.metrics import auc
 def confidence_score(x):
     return 0.5 * np.log(x / (1 - x))
 
+def split(x: torch.Tensor, d: torch.Tensor):
+    # Groups x samples based on d-values
+    sorter = torch.argsort(d, dim=0)
+    _, counts = torch.unique(d, return_counts=True)
+    return torch.split(x[sorter, :].squeeze(dim=1), counts.tolist()), torch.split(d[sorter, :].squeeze(dim=1), counts.tolist())
+
 def margin(prediction: torch.Tensor, target: torch.Tensor) -> float:
     """
     Compares the prediction and the target for the calculation of the margin 
@@ -16,11 +22,17 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> float:
     Returns:
         margin: The margin value for the corresponding datapoint.
     """
-    if prediction == target:
-        margin = confidence_score(prediction) 
-    else:
-        margin = -confidence_score(prediction)
-    return margin
+    correct = (torch.round(prediction) == target).type(torch.int) * 2 - 1
+    prediction[prediction<0.5] = 1 - prediction[prediction<0.5]
+    return correct * confidence_score(prediction)
+
+def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> list:
+    """This function splits the predictions and targets on group assignment and calculates the corresponding
+        group specific margin. """
+    pred_split, d_split = split(predictictions, attributes)
+    tar_split, _ = split(targets, attributes)
+    margins = {d[0]:margin(p, t) for p, t, d in zip(pred_split, tar_split, d_split)}
+    return margins
        
 def plot_margin(M_0: list, M_1: list):
     """
@@ -31,60 +43,11 @@ def plot_margin(M_0: list, M_1: list):
     """
     # bins = int(np.sqrt(len(M_0)))
     bins = 1000
+    fig = plt.figure()
     plt.hist(M_0, bins, alpha=0.5, label='Group 0')
     plt.hist(M_1, bins, alpha=0.5, label='Group 1')
     plt.legend(loc="upper left")
-    plt.show()
-
-def evaluation_statistics(predictions: torch.Tensor, targets: torch.Tensor, d: torch.Tensor, tau: float):
-    """
-    Calculates the statistics necessary for evaluation.
-    Args:
-        data: The test dataset that is evaluated.
-        predictions: The predictions made for the test dataset.
-        targets: The corresponding correct targets for the predictions.
-        d: The group the datapoints corresponds to.
-        tau: The threshold for abstaining predictions.
-    Returns:
-        num_correct: The number of correct classified datapoints.
-        num_classified: The total number of classified datapoints.
-        true_pos: The amount of true positives.
-        false_pos: The amount of false positives.
-        M: The margin values for Group 0 and Group 1.
-    """
-    num_correct_0, num_incorrect_0, num_correct_1, num_incorrect_1 = 0, 0, 0, 0 
-    tp_0, fp_0, tp_1, fp_1 = 0, 0, 0, 0
-    M_0, M_1 = [], []
-
-    for i in range(len(targets)):
-        marg = margin(predictions[i], targets[i])
-
-        # correct predictions
-        if marg >= tau and d[i] == 0:
-            M_0.append(marg)
-            num_correct_0 += 1
-
-        elif marg >= tau and d[i] == 1:
-            M_1.append(marg)
-            num_correct_1 += 1
-            
-        # incorrect predictions
-        elif marg <= -tau and d[i] == 0:
-            M_0.append(marg)   
-            num_incorrect_0 += 1  
-        elif marg <= -tau and d[i] == 1:
-            M_1.append(marg)
-            num_incorrect_1 += 1
-        
-    num_correct = num_correct_0 + num_correct_1
-    num_incorrect = num_incorrect_0 + num_incorrect_1
-    num_classified = num_correct + num_incorrect
-    
-    true_pos = [tp_0, tp_1]
-    false_pos = [fp_0, fp_1]
-    M = [M_0, M_1]
-    
-    return num_correct, num_classified, true_pos, false_pos, M 
+    return fig
 
 def average_acc_cov(area1: float, area2: float) -> float:
     return (area1 + area2).mean()

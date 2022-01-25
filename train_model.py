@@ -196,52 +196,49 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
 
     set_seed(seed)
 
-    # Get the model predictions
+    # Get the model predictions and group specific margins
     predictions = []
     targets = []
     attributes = []
+    
     with torch.no_grad():
         model.eval()
         for x, t, d in tqdm(test_loader, desc="test", disable=progress_bar):
             x = x.to(device)
             t = t.to(device).squeeze()
+            d = d
 
-            pred_joint, _, _ = model.forward(x)
+            p, _, _ = model.forward(x)
+
+            p = p.cpu().unsqueeze(dim=-1)
+            t = t.cpu().unsqueeze(dim=-1)
+            d = d.cpu()
 
             # Save predictions and targets for further evaluation
-            predictions.append(pred_joint.cpu())
-            targets.append(t.cpu())
-            attributes.append(d.cpu())
+            predictions.append(p)
+            targets.append(t)
+            attributes.append(d)
 
-    # Compute accuracy and coverage
-    taus = np.arange(0, 2.5, step=0.1)
-    coverages, accuracies, precisions_0, precisions_1 = [], [], [], []
-    for tau in taus:
-        total_correct, total_classified, total_samples = 0, 0, 0
-        true_p_0, false_p_0, true_p_1, false_p_1 = 0, 0, 0, 0 
-        M_0, M_1 = [], []
+    predictions = torch.cat(predictions)
+    targets = torch.cat(targets)
+    attributes = torch.cat(attributes)
 
-        for t, p, d in zip(targets, predictions, attributes):
-            num_correct, num_classified, tp, fp, M = evaluation_statistics(p, t, d, tau)
-            total_correct += num_correct
-            total_classified += num_classified
-            total_samples += len(t)
+    M = margin_group(predictions, targets, attributes)
 
-            # true_p_0 += tp[0]
-            # true_p_1 += tp[1]
-            # false_p_0 += fp[0]
-            # false_p_1 += fp[1]
+    max_tau = torch.max(torch.abs(torch.cat(list(M.values())))).item()
+    print(max_tau)
 
-            M_0.extend(M[0])
-            M_1.extend(M[1])
+    taus = np.arange(0, max_tau, step=0.1)
+    
+    CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
+    CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
+    CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
+    
+    A = {tau: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for group_margin in M.values()] for tau in taus}
+    C = {tau: [CDF_covered(group_margin, tau) for group_margin in M.values()] for tau in taus}
+    P = None
 
-        accuracies.append(total_correct / total_classified)
-        coverages.append(total_classified / total_samples)
-
-    print("Accuracies: ", accuracies)
-    print("Coverage: ", coverages)
-    print(precisions_0, precisions_1)
-    return accuracies, coverages, [precisions_0, precisions_1], [M_0, M_1]
+    return M, A, C, P
 
 def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, taus: np.array, dataset_root:str, progress_bar: bool):
     """
@@ -295,8 +292,6 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
 
     # print("Accuracy on the test set:", test_results)
 
-    # test metrics
-    # test_accuracies, test_coverages, test_precisions, M = test_metrics(model, dataset, taus, batch_size, device, seed, dataset_root, progress_bar)
     test_auc = accuracy_coverage_plot(test_accuracies, test_coverages)
     # test_precision = precision_coverage_plot(test_precisions[0], test_precisions[1], test_coverages)
 
