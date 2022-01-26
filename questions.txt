@@ -34,10 +34,13 @@ Hoe zou je het model kunnen ontwerpen om met continuous protected variables om t
 - Running the experiment on different hardware setups 
 - difficulty finding hyperparameters is also part of the paper
 
+# Week 3 Meeting 1
+
+- Can we switch model description with datasets in the report?
+
 
 Sessie 4:
 
 BERT input 512 tokens voor civil comments?
 Binary attributes almost done:
-    Continuous attributes evaluation (Compare model against baseline)
     Categorical attributes evaluation (Compare model against baseline)

@@ -53,4 +53,6 @@ For the Adult dataset we normalize the columns with continues values to have zer
 ### CheXpert
 The images of the CheXpert data are cropped to 224 by 224 pixels (the bottom and right side information are thrown out), and this greyscale image is stacked three times to simulated R, G and B channels (since the DensNet121 expects this as input). The Pleural Effusion is the attribute for this dataset and has three possible values that correspond (in some way) to 'positive', 'negative' and 'undecided'. Everything that was not one, i.e. 'positive', was mapped to zero to make this a binary attribute.
 
+## Model Description
 
+The model comprises of a featurizer, classifier and regularizer. To handle different types of datasets, the featurization component is [MODULAR]. 

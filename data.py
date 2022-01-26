@@ -4,9 +4,10 @@ import pandas as pd
 import numpy as np
 import torch.utils.data as data
 import zipfile
-import gdown
+# import gdown
 from PIL import Image
 from torchvision import transforms
+from tqdm import tqdm
 
 
 # TODO add Civil Comments dataset object
@@ -14,10 +15,10 @@ from torchvision import transforms
 
 # Dataset attribute selection. Please make sure that the column name and column values are correct.
 CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
-ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Male', ' Female']}
+ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Female',' Male']}
 CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
 CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
-# ADULT_ATTRIBUTE = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
+# self.attribute = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
 
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
@@ -37,6 +38,8 @@ class AdultDataset(data.Dataset):
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
                    'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
 
+        self.attribute = {'column' : 'sex', 'values' : [' Female',' Male']}
+
         # Remove dots from labels (in test data)
         table['salary'] = table['salary'].str.replace('.', '', regex=False)
 
@@ -48,7 +51,7 @@ class AdultDataset(data.Dataset):
             table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
         else:
             # Introduce bias in the train data
-            where_d_zero = set(table[ table[ADULT_ATTRIBUTE['column']] == ADULT_ATTRIBUTE['values'][0] ].index)
+            where_d_zero = set(table[ table[self.attribute['column']] == self.attribute['values'][0] ].index)
             where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
             drop_rows = list(where_d_zero & where_y_one)[50:]
             self._dropped_rows = drop_rows
@@ -71,10 +74,10 @@ class AdultDataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[ADULT_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in ADULT_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -94,7 +97,7 @@ class AdultDataset(data.Dataset):
             table = table[table[column] != ' ?']
             onehot_colum = pd.get_dummies(table[column], prefix=column)
             table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
-            if column != ADULT_ATTRIBUTE['column']:
+            if column != self.attribute['column']:
                 table = table.drop(columns=column)
         return table
 
@@ -130,7 +133,7 @@ class AdultDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(ADULT_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
 
     def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
@@ -146,31 +149,34 @@ class AdultDataset(data.Dataset):
             tuple: The x value includes all one hot encoded and continous data except for the target 
         value, and the column that contains the non-one hot encoded attribute (since this is only used as a map for d). The t 
         value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
-        the ADULT_ATTRIBUTE['values'] list. This determines the mapping for the group specific model later on.
+        the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
         # Alias the datafram
         df = self._table
         # x is all values, except the target value, and the attribute column
-        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', ADULT_ATTRIBUTE['column']])]
+        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', self.attribute['column']])]
         x = df_x.values[i]
         t = [df.iloc[i]['salary_ >50K']]
-        d = [ ADULT_ATTRIBUTE['values'].index(df.iloc[i][ ADULT_ATTRIBUTE['column'] ])]
+        d = [ self.attribute['values'].index(df.iloc[i][ self.attribute['column'] ])]
         return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
-    # TODO change target to Pleural Effusion
     # TODO image preprocessing
     # TODO improve comments
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         
-        # Read the csv file, and remove rows with -1's for the attribute value (to make flags binary)
+        # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
         self._table = pd.read_csv(os.path.join(self._datapath, "CheXpert-v1.0-small", self._filename))
-        self._table = self._table[ self._table[CHEXPERT_ATTRIBUTE['column']].isin(CHEXPERT_ATTRIBUTE['values']) == True ]
 
+        # Remove rows with -1's for the attribute value and target value (to make flags binary)
+        self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
+        # TODO Remove rows with -1 target values
+
+        self.attribute = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
@@ -185,10 +191,10 @@ class CheXpertDataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[CHEXPERT_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in CHEXPERT_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -208,7 +214,7 @@ class CheXpertDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(CHEXPERT_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
     
     def __len__(self):
         return len(self._table)
@@ -219,9 +225,9 @@ class CheXpertDataset(data.Dataset):
 
         # Get the image
         filename = df.iloc[i]['Path']
-        img = Image.open(os.path.join(self._datapath, filename))
+        img = Image.open(os.path.join(self._datapath, filename)).resize((224,224))
 
-        x = self._transfrom(img)[:,:224,:224].repeat(3,1,1)
+        x = self._transfrom(img).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
@@ -239,6 +245,7 @@ class CelebADataset(data.Dataset):
         self.anno_table = pd.read_csv(os.path.join(self._datapath, self.anno_filename), sep=r"\s+", header = 1)
 
         # Split the dataset into a train, validation and test dataset.
+        self.attribute = {'column' : 'Male', 'values' : [-1, 1]}
 
         if split == "train":
             self.split_table = self.split_table[self.split_table.partition == 0]
@@ -263,10 +270,10 @@ class CelebADataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[CELEBA_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in CELEBA_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios) 
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -286,7 +293,7 @@ class CelebADataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(CELEBA_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
 
     def __len__(self):
         return len(self.anno_table)
@@ -319,16 +326,17 @@ class CivilDataset(data.Dataset):
         self._partition_table = pd.read_csv(os.path.join(self._datapath, self._filename))
         self._alldata_table = pd.read_csv(os.path.join(self._datapath, self._alldata_filename))
 
+        self.attribute = {'column' : 'christian', 'values' : [0, 1]}
         index_list = list(self._partition_table.index.values)
         self._alldata_table = self._alldata_table.iloc[index_list]
         self._alldata_table = self._alldata_table[self._alldata_table['christian'].notna()]
+        self._alldata_table.sort_values(by="comment_text", key=lambda x: x.str.len())
 
 
         probs = self._attr_ratio(self._alldata_table)
         self._attr_dist = torch.distributions.Categorical(probs = probs)
 
         self._transform = transforms.ToTensor()
-        self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')    # Download vocabulary from S3 and cache.
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
@@ -338,10 +346,10 @@ class CivilDataset(data.Dataset):
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
 
         Returns:
-            torch.Tensor: a tensor with probabilities for the ADULT_ATTRIBUTE['values'] in the same order.
+            torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[CIVIL_ATTRIBUTE['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in CIVIL_ATTRIBUTE['values']])
+        counts = table[self.attribute['column']].value_counts()
+        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
@@ -361,7 +369,7 @@ class CivilDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(CIVIL_ATTRIBUTE['values'])
+        return len(self.attribute['values'])
 
     def __len__(self):
         return len(self._alldata_table)
@@ -374,19 +382,16 @@ class CivilDataset(data.Dataset):
         # is not one binary value with toxic or not but a continous value between 0 and 1. Therefor we decided to set a threshold
         # at 0.5. All values below 0.5 were classified as 0 (not toxic) and all values above 0.5 were classified as 1
         x = df.iloc[i]['comment_text']
-        if df.iloc[i]['toxicity'] >= 0.5:
-            t = torch.Tensor([1])
-        else:
-            t = torch.Tensor([0])
-        d = torch.Tensor([int(df.iloc[i]['christian'] == 1)])
-        x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
-        return x, t, d
+        t = int(df.iloc[i]['toxicity'] >= 0.5)
+        d = int(df.iloc[i]['christian'] == 1)
+        # x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
+        return x, torch.Tensor([t]), torch.Tensor([d])
 
 
 
-def get_train_validation_set(dataset:str, root="data/"):
+def get_train_validation_set(dataset:str, root="data/", attribute=""):
     # TODO add docstring
-    # TODO add civil comments, chexpert, celeba
+    # TODO add attribute passthrough to dataset objects
     if dataset == "adult":
         train = AdultDataset(root, split="train")
         val = None
@@ -427,8 +432,11 @@ def get_chexpert(root="data"):
     pass
 
 if __name__ == "__main__":
-    test = CivilDataset('data', split="train")
-    print(test[0])
+    train_set = CivilDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    for p in tqdm(train_loader):
+        a = p[0]
     # dummy = AdultDataset('data', split="train")
     # dummy2 = AdultDataset('data', split='test')
     # # print(dummy[3])
