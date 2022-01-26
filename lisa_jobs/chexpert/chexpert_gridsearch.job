@@ -26,5 +26,5 @@ source activate FSCS
 HPARAMS_FILE=$HOME/FSCS/lisa_jobs/chexpert/chexpert_titan.job
 
 # Run your code
-srun python -u train_model.py --dataset $DATASET --batch_size 64 --epochs 20 --dataset_root $TMPDIR \
+srun python -u train_model.py --dataset $DATASET --batch_size 64 --epochs 10 --dataset_root $TMPDIR \
                $(head -$SLURM_ARRAY_TASK_ID $HPARAMS_FILE | tail -1)
