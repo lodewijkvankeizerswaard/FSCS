@@ -82,7 +82,7 @@ class CheXPertFeaturizer(nn.Module):
         super(CheXPertFeaturizer, self).__init__()
         model = models.densenet121(pretrained=True)
         model = drop_classification_layer(model)
-        self.model = nn.Sequential(model, nn.AvgPool2d((1, 1)))
+        self.model = nn.Sequential(model, nn.AvgPool2d((7, 7)))
 
     def forward(self, x):
         return self.model(x)
