@@ -167,7 +167,7 @@ class CheXpertDataset(data.Dataset):
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
-        self.attribute = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
+        self.attribute = {'column' : 'Support Devices', 'values' : [0, 1]}
         
         # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
@@ -228,8 +228,8 @@ class CheXpertDataset(data.Dataset):
         img = Image.open(os.path.join(self._datapath, filename)).resize((224,224))
 
         x = self._transfrom(img).repeat(3,1,1)
-        t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
-        d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
+        t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)])
+        d = torch.Tensor([int(df.iloc[i][self.attribute['column']] == 1)])
         return x, t, d
 
 class CelebADataset(data.Dataset):
