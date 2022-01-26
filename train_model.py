@@ -16,7 +16,6 @@ LAMBDA = 0.7
 
 tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
 
-
 def bert_collate(data_batch):
     x, t, d = [], [], []
     for modality, target, attribute in data_batch:
@@ -65,7 +64,7 @@ def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: flo
         str: The name to use for logging and saving
     """
     # We are using the log10 to indicate the learning rate for learning rates ending in a 1
-    lrs = [str(lr.item())[:2] if int(str(lr.item())[3:]) == 0 else str(lr.item()) for lr in torch.log10(torch.Tensor([lr_f, lr_g, lr_j]))]
+    lrs = [str(np.log10(lr))[:2] if int(str(lr)[-1]) == 1 else str(lr)[1:] for lr in [lr_f, lr_g, lr_j]]
     return "{}_{}_{}{}{}_{}_{}".format(dataset, attribute, *lrs, optim, str(seed))
 
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
@@ -223,16 +222,15 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     attributes = torch.cat(attributes)
 
     # Compute overal margin and AUC statistics
-    area_under_curve, M_group, A_group, C_group, P_group = evalutaion_statistics(predictions, targets, attributes)
+    area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
 
     margin_plot = plot_margin_group(M_group)
+    precision_plot = accuracy_coverage_plot(P_A_group, P_C_group)
     ac_plot = accuracy_coverage_plot(A_group, C_group)
 
-    area_between_curves_val = 0
+    return area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot
 
-    return area_under_curve, area_between_curves_val, margin_plot, ac_plot
-
-def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, taus: np.array, dataset_root:str, progress_bar: bool):
+def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -277,10 +275,11 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    area_under_curve, area_between_curves_val, margin_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
+    area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
 
     writer.add_hparams(hparams, {"auc": area_under_curve, "abc": area_between_curves_val}) 
     writer.add_figure(checkpoint_name[:-3] + '_margin', margin_plot)
+    writer.add_figure(checkpoint_name[:-3] + '_pre', precision_plot)
     writer.add_figure(checkpoint_name[:-3] + '_ac', ac_plot)
     writer.close()
 
@@ -317,8 +316,6 @@ if __name__ == '__main__':
                         help='Max number of epochs.')
     parser.add_argument('--seed', default=42, type=int,
                         help='Seed to use for reproducing results.')
-    parser.add_argument('--taus', default=np.arange(0, 2.5, step=0.1), type=np.array,
-                        help='Values for the threshold tau.')
 
     # Other arguments
     parser.add_argument('--dataset_root', default="data", type=str,
