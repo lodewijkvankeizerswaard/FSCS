@@ -160,6 +160,7 @@ class CheXpertDataset(data.Dataset):
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
+        self.attribute = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
         
         # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
@@ -169,7 +170,6 @@ class CheXpertDataset(data.Dataset):
         self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
         # TODO Remove rows with -1 target values
 
-        self.attribute = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
@@ -224,8 +224,6 @@ class CheXpertDataset(data.Dataset):
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
         d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
         return x, t, d
-
-    
 
 class CelebADataset(data.Dataset):
     def __init__(self, root, split="train"):
@@ -379,8 +377,6 @@ class CivilDataset(data.Dataset):
         # x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
         return x, torch.Tensor([t]), torch.Tensor([d])
 
-
-
 def get_train_validation_set(dataset:str, root="data/", attribute=""):
     # TODO add docstring
     # TODO add attribute passthrough to dataset objects
@@ -415,26 +411,40 @@ def get_test_set(dataset:str, root="data/"):
         raise ValueError("This dataset is not implemented")
     return test
 
-
-
-def get_civil(root="data"):
-    pass
-
-def get_chexpert(root="data"):
-    pass
-
 if __name__ == "__main__":
+    print("Running all dataset objects!")
+    train_set = AdultDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
+        a = p[0]
+        if i > 10:
+            break
+
+    train_set = CelebADataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
+        a = p[0]
+        if i > 10:
+            break
+
+    train_set = CheXpertDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
+        a = p[0]
+        if i > 10:
+            break
+
     train_set = CivilDataset('data', split="train")
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
                                                shuffle=True, num_workers=3, drop_last=True)
-    for p in tqdm(train_loader):
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
         a = p[0]
-    # dummy = AdultDataset('data', split="train")
-    # dummy2 = AdultDataset('data', split='test')
-    # # print(dummy[3])
-    # # print(dummy.sample_d((10,10)))
-    # # print(dummy.datapoint_shape())
-    # # print(dummy2.datapoint_shape())
-
-    # ch1 = CheXpertDataset('data', split="train")
-    # ch2 = CheXpertDataset('data', split="test")
+        if i > 10:
+            break

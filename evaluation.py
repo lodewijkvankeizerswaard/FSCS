@@ -39,15 +39,28 @@ def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes
     margins = {int(d[0]):margin(p, t) for p, t, d in zip(pred_split, tar_split, d_split)}
     return margins
 
-# Compute overal margin and AUC statistics
-CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
-CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
-CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
+def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> list:
+    """Calculate the group specific precisions."""
+    pred_split, d_split = split(predictictions, attributes)
+    tar_split, _ = split(targets, attributes)
+    margin_precision = {}
+    for group_pred, group_tar, group_attr in zip(pred_split, tar_split, d_split):
+        pred_round = torch.round(group_pred)
+        zero_index = (pred_round == 0).nonzero()[:,0]
+        group_pred_y_hat_1 = group_pred[~zero_index,:]
+        group_tar_y_hat_1 = group_tar[~zero_index,:]
+        margin_precision[group_attr[0].item()] = margin(group_pred_y_hat_1, group_tar_y_hat_1)
+    return margin_precision
 
 def evalutaion_statistics(predictions, targets, attributes):
     M = margin(predictions, targets) 
     max_tau = torch.max(torch.abs(M)).item()
-    taus = np.arange(0, max_tau, step=0.1)
+    taus = np.arange(0, max_tau, step=0.0001)
+
+    # Compute overal margin and AUC statistics
+    CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
+    CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
+    CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
 
     A = [CDF_correct(M, tau) / CDF_covered(M, tau) if CDF_covered(M, tau) > 0 else 1 for tau in taus]
     C = [CDF_covered(M, tau) for tau in taus]
@@ -57,9 +70,16 @@ def evalutaion_statistics(predictions, targets, attributes):
     M_group = margin_group(predictions, targets, attributes)
     A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in M_group.items()}
     C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in M_group.items()}
-    P_group = None
 
-    return area_under_curve, M_group, A_group, C_group, P_group
+    # Compute the group specific precisions for Y_hat = 1
+    P_M_group = precision_group(predictions, targets, attributes)
+    P_A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in P_M_group.items()}
+    P_C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in P_M_group.items()}
+
+    area_under_curve_group_precision = [auc(P_C_group[group], P_A_group[group]) for group in P_M_group.keys()]
+    area_between_curves_val = area_between_curves(area_under_curve_group_precision[0], area_under_curve_group_precision[1])
+
+    return area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group
 
 def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     """
