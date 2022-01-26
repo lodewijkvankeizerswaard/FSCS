@@ -121,7 +121,6 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict):
     plt.ylim([0.4, 1.01])
     plt.xlim([0.15, 1.0])
     plt.legend(loc="lower left")
-    plt.show()
     return fig
 
 def precision_coverage_plot(precisions_0: list, precisions_1: list, coverages: list):
@@ -145,7 +144,6 @@ def precision_coverage_plot(precisions_0: list, precisions_1: list, coverages: l
     plt.xlim([0.15, 1.0])
     plt.xlabel('coverage')
     plt.ylabel('precision')
-    plt.show()
 
     area_0 = auc(coverages, precisions_0)
     area_1 = auc(coverages, precisions_1)
