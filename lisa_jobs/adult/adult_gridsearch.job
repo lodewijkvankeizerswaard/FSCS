@@ -26,5 +26,5 @@ source activate FSCS
 HPARAMS_FILE=$HOME/FSCS/lisa_jobs/adult/adult_hyperparams.txt
 
 # Run your code
-srun python -u train_model.py --dataset $DATASET --batch_size 32 --epochs 20 --dataset_root $TMPDIR \
+srun python -u train_model.py --dataset $DATASET --batch_size 256 --epochs 20 --dataset_root $TMPDIR \
                $(head -$SLURM_ARRAY_TASK_ID $HPARAMS_FILE | tail -1)
