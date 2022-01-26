@@ -263,8 +263,8 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
         model = FairClassifier(dataset, nr_attr_values=10).to(device)
-        model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')), strict=False)
-
+        model.load_state_dict(torch.load(checkpoint_path), strict=False)
+        model.to(device)
     else:
         # Load the dataset with the given parameters, initialize the model and start training
         train_set, val_set = get_train_validation_set(dataset, root=dataset_root, attribute=attribute)
