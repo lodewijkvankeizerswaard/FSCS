@@ -223,23 +223,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     attributes = torch.cat(attributes)
 
     # Compute overal margin and AUC statistics
-    CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
-    CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
-    CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
-
-    M = margin(predictions.clone(), targets) # .clone() to prevent inplace modification
-    max_tau = torch.max(torch.abs(M)).item()
-    taus = np.arange(0, max_tau, step=0.1)
-
-    A = [CDF_correct(M, tau) / CDF_covered(M, tau) if CDF_covered(M, tau) > 0 else 1 for tau in taus]
-    C = [CDF_covered(M, tau) for tau in taus]
-    area_under_curve = sk.metrics.auc(C, A)
-
-    # Compute group specific margins and accuracies
-    M_group = margin_group(predictions, targets, attributes)
-    A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in M_group.items()}
-    C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in M_group.items()}
-    P_group = None
+    area_under_curve, M_group, A_group, C_group, P_group = evalutaion_statistics(predictions, targets, attributes)
 
     margin_plot = plot_margin_group(M_group)
     ac_plot = accuracy_coverage_plot(A_group, C_group)
@@ -279,7 +263,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
         model = FairClassifier(dataset, nr_attr_values=10).to(device)
-        model.load_state_dict(torch.load(checkpoint_path), strict=False)
+        model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')), strict=False)
 
     else:
         # Load the dataset with the given parameters, initialize the model and start training
