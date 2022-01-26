@@ -267,6 +267,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         model.to(device)
     else:
         # Load the dataset with the given parameters, initialize the model and start training
+        writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
         train_set, val_set = get_train_validation_set(dataset, root=dataset_root, attribute=attribute)
         train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
         val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn) if val_set else None
@@ -274,7 +275,9 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
         model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, epochs,
                             checkpoint_name, device, progress_bar, writer)
+        writer.close()
     
+    writer = SummaryWriter(log_dir=os.path.join("runs_eval", checkpoint_name[:-3]))
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
     area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
