@@ -329,6 +329,7 @@ class CivilDataset(data.Dataset):
         self.attribute = {'column' : 'christian', 'values' : [0, 1]}
         index_list = list(self._partition_table.index.values)
         self._alldata_table = self._alldata_table.iloc[index_list]
+        # Remove all columns where the attribute Christian is not defined
         self._alldata_table = self._alldata_table[self._alldata_table['christian'].notna()]
         self._alldata_table.sort_values(by="comment_text", key=lambda x: x.str.len())
 
