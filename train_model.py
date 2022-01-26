@@ -64,7 +64,7 @@ def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: flo
         str: The name to use for logging and saving
     """
     # We are using the log10 to indicate the learning rate for learning rates ending in a 1
-    lrs = [str(lr.item())[:2] if int(str(lr.item())[3:]) == 0 else str(lr.item()) for lr in torch.log10(torch.Tensor([lr_f, lr_g, lr_j]))]
+    lrs = [str(np.log10(lr))[:2] if int(str(lr)[-1]) == 1 else str(lr)[1:] for lr in [lr_f, lr_g, lr_j]]
     return "{}_{}_{}{}{}_{}_{}".format(dataset, attribute, *lrs, optim, str(seed))
 
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
