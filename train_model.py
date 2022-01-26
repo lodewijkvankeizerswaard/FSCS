@@ -247,6 +247,8 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     collate_fn = bert_collate if dataset == "civil" else None
     set_seed(seed)
 
+    print("Training on ", device)
+
     # Check if the given configuration has been trained before
     if checkpoint:
         checkpoint_name = checkpoint
@@ -325,6 +327,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     kwargs = vars(args)
+
+    print("Training with: ", str(kwargs))
 
     main(**kwargs)
         
