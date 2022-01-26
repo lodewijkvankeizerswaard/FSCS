@@ -26,9 +26,10 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> float:
     Returns:
         margin: The margin value for the corresponding datapoint.
     """
-    correct = (torch.round(prediction) == target).type(torch.int) * 2 - 1
-    prediction[prediction<0.5] = 1 - prediction[prediction<0.5]
-    return correct * confidence_score(prediction)
+    pred = prediction.clone()
+    correct = (torch.round(pred) == target).type(torch.int) * 2 - 1
+    pred[pred<0.5] = 1 - pred[pred<0.5]
+    return correct * confidence_score(pred)
 
 def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> list:
     """This function splits the predictions and targets on group assignment and calculates the corresponding
@@ -37,7 +38,29 @@ def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes
     tar_split, _ = split(targets, attributes)
     margins = {int(d[0]):margin(p, t) for p, t, d in zip(pred_split, tar_split, d_split)}
     return margins
-       
+
+# Compute overal margin and AUC statistics
+CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
+CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
+CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
+
+def evalutaion_statistics(predictions, targets, attributes):
+    M = margin(predictions, targets) 
+    max_tau = torch.max(torch.abs(M)).item()
+    taus = np.arange(0, max_tau, step=0.1)
+
+    A = [CDF_correct(M, tau) / CDF_covered(M, tau) if CDF_covered(M, tau) > 0 else 1 for tau in taus]
+    C = [CDF_covered(M, tau) for tau in taus]
+    area_under_curve = auc(C, A)
+
+    # Compute group specific margins and accuracies
+    M_group = margin_group(predictions, targets, attributes)
+    A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in M_group.items()}
+    C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in M_group.items()}
+    P_group = None
+
+    return area_under_curve, M_group, A_group, C_group, P_group
+
 def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     """
     Plots the margin distributions for two groups.
@@ -68,8 +91,6 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict):
     Returns:
         area_under_curve: The area under the accuracy-coverage curve.
     """
-    # accuracies.reverse()
-    # coverages.reverse()
     fig = plt.figure()
     for group in accuracies.keys():
         coverages[group].reverse()
