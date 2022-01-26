@@ -5,7 +5,7 @@
 #SBATCH --job-name=CelebTitan
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=3
-#SBATCH --time=48:00:00
+#SBATCH --time=12:00:00
 #SBATCH --mem=32000M
 #SBATCH --array=1-5%8
 #SBATCH --output=slurm_array_CELEBA_%A_%a.out
@@ -26,5 +26,5 @@ source activate FSCS
 HPARAMS_FILE=$HOME/FSCS/lisa_jobs/chexpert/chexpert_titan.job
 
 # Run your code
-srun python -u train_model.py --dataset $DATASET --batch_size 256 --epochs 10 --dataset_root $TMPDIR \
+srun python -u train_model.py --dataset $DATASET --batch_size 128 --epochs 10 --dataset_root $TMPDIR \
                $(head -$SLURM_ARRAY_TASK_ID $HPARAMS_FILE | tail -1)
