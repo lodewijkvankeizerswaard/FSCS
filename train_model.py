@@ -64,7 +64,8 @@ def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: flo
     Returns:
         str: The name to use for logging and saving
     """
-    lrs = [str(lr.item())[:2] for lr in torch.log10(torch.Tensor([lr_f, lr_g, lr_j]))]
+    # We are using the log10 to indicate the learning rate for learning rates ending in a 1
+    lrs = [str(lr.item())[:2] if int(str(lr.item())[3:]) == 0 else str(lr.item()) for lr in torch.log10(torch.Tensor([lr_f, lr_g, lr_j]))]
     return "{}_{}_{}{}{}_{}_{}".format(dataset, attribute, *lrs, optim, str(seed))
 
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
@@ -247,7 +248,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
 
     return area_under_curve, area_between_curves_val, margin_plot, ac_plot
 
-def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, taus: np.array, dataset_root:str, progress_bar: bool):
+def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, taus: np.array, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -261,19 +262,19 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
                       corruption functions and the plain test set.
     """
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    collate_fn = bert_collate if dataset == "civil" else None
     set_seed(seed)
 
     # Check if the given configuration has been trained before
-    checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
+    if checkpoint:
+        checkpoint_name = checkpoint
+    else:
+        checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
+    checkpoint_path = os.path.join("models", checkpoint_name)
 
     writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
     hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
 
-
-    collate_fn = bert_collate if dataset == "civil" else None
-
-
-    checkpoint_path = os.path.join("models", checkpoint_name)
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
@@ -304,6 +305,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # General hyperparameters
+    parser.add_argument('--checkpoint', default='', type=str,
+                        help='A filename in the models directory which you want to evaluate. \
+                        If not found will train a model with this name.')
     parser.add_argument('--dataset', default='adult', type=str,
                         help='Name of the dataset to evaluate on.')
     parser.add_argument('--attribute', default="", type=str,
