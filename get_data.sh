@@ -71,6 +71,7 @@ if [[ -d celeba/img_align_celeba ]]; then
 else
     [[ ! -d "celeba" ]] &&  mkdir celeba
     cd celeba
+    # Datasets were available on Google Drive, therefor gdown was used to import the datasets
     [[ ! -f "img_align_celeba.zip" ]] && python -c "import gdown; gdown.download($CELEB_URL, '.')"
     unzip -u img_align_celeba.zip
     rm img_align_celeba.zip
