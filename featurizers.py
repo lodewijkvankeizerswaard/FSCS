@@ -30,6 +30,8 @@ def get_featurizer(dataset_name: str):
 
     return out_features, model
 
+def rename_attribute(obj, old_name, new_name):
+    obj._modules[new_name] = obj._modules.pop(old_name)
 
 def drop_classification_layer(model):
     return torch.nn.Sequential(*(list(model.children())[:-1]))

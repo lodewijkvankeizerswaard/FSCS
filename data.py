@@ -13,13 +13,6 @@ from tqdm import tqdm
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
 
-# Dataset attribute selection. Please make sure that the column name and column values are correct.
-CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
-ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Female',' Male']}
-CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
-CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
-# self.attribute = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
-
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
 ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
