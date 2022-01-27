@@ -102,28 +102,29 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
         nr_batches = len(train_loader)
 
         # Group specific training
-        group_correct, group_total = 0, 0
-        group_loss = 0
-        for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar)):
-            x = x.to(device)
-            t = t.to(device)
-            d = d.to(device)
-            group_specific_optimizer.zero_grad()
-            pred_group_spe = model.group_forward(x, d)
+        if lmbda != 0:
+            group_correct, group_total = 0, 0
+            group_loss = 0
+            for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar)):
+                x = x.to(device)
+                t = t.to(device)
+                d = d.to(device)
+                group_specific_optimizer.zero_grad()
+                pred_group_spe = model.group_forward(x, d)
 
-            group_specific_loss = loss_module(pred_group_spe, t.squeeze())
-            group_specific_loss.backward()
+                group_specific_loss = loss_module(pred_group_spe, t.squeeze())
+                group_specific_loss.backward()
 
-            group_specific_optimizer.step()
+                group_specific_optimizer.step()
 
-            group_correct += num_correct_predictions(pred_group_spe, t)
-            group_total += len(x)
-            group_loss += group_specific_loss
+                group_correct += num_correct_predictions(pred_group_spe, t)
+                group_total += len(x)
+                group_loss += group_specific_loss
 
-            writer.add_scalar("train/batch/group_loss", group_specific_loss, i + epoch * nr_batches)
+                writer.add_scalar("train/batch/group_loss", group_specific_loss, i + epoch * nr_batches)
 
-        writer.add_scalar("train/group_loss", group_loss, epoch)
-        writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
+            writer.add_scalar("train/group_loss", group_loss, epoch)
+            writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
