@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import numpy as np
-import sklearn as sk
+from datetime import datetime
 
 import os
 from tqdm import tqdm
@@ -11,8 +11,6 @@ from data import get_train_validation_set, get_test_set
 from model import FairClassifier
 from evaluation import *
 from torch.utils.tensorboard import SummaryWriter
-
-LAMBDA = 0.7 
 
 tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
 
@@ -58,17 +56,19 @@ def get_optimizer(parameters, lr: float, optimizer: str) -> torch.optim.Optimize
         ValueError("The optimizer {} is not implemented.".format(optimizer))
     return opt
 
-def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: float, optim: str, seed: int) -> str:
+def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: float, lmbda: float, optim: str, seed: int) -> str:
     """Parse the training arguments into a filename 
     Returns:
         str: The name to use for logging and saving
     """
     # We are using the log10 to indicate the learning rate for learning rates ending in a 1
     lrs = [str(np.log10(lr))[:2] if int(str(lr)[-1]) == 1 else str(lr)[1:] for lr in [lr_f, lr_g, lr_j]]
-    return "{}_{}_{}{}{}_{}_{}".format(dataset, attribute, *lrs, optim, str(seed))
+    model = "{}_{}_{}{}{}_{}_{}_{}".format(dataset, attribute, *lrs, lmbda, optim, str(seed))
+    date = datetime.now().strftime("%b%d-%H:%M")
+    return os.path.join(model, date)
 
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
-                optimizer:str, lr_f: float, lr_g: float, lr_j: float, epochs: int, checkpoint_name: str, 
+                optimizer:str, lr_f: float, lr_g: float, lr_j: float, lmbda: float, epochs: int, checkpoint_name: str, 
                 device: torch.device, progress_bar: bool, writer: torch.utils.tensorboard.SummaryWriter) -> nn.Module:
     """
     Trains a given model architecture for the specified hyperparameters.
@@ -140,7 +140,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
             # Calculate L_0 and L_R
             L_0 = loss_module(pred_joint, t)
-            L_R = LAMBDA * (loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t))
+            L_R = lmbda * (loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t))
 
             # Add L_R to the feature extractor gradients (but not to the joint classifier)
             feature_extractor_optimizer.zero_grad()
@@ -171,7 +171,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             pass
     
     # Save best model and return it.
-    torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
+    torch.save(model.state_dict(), os.path.join("runs", checkpoint_name))
     return model
 
 def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) -> int:
@@ -230,7 +230,8 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
 
     return area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot
 
-def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
+def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, lmbda: float,
+        batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -253,8 +254,8 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     if checkpoint:
         checkpoint_name = checkpoint
     else:
-        checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
-    checkpoint_path = os.path.join("models", checkpoint_name)
+        checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, lmbda, optimizer, seed) + '.pt'
+    checkpoint_path = os.path.join("runs", checkpoint_name)
 
     writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
     hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
@@ -273,7 +274,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn) if val_set else None
 
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
-        model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, epochs,
+        model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, lmbda, epochs,
                             checkpoint_name, device, progress_bar, writer)
         writer.close()
     
@@ -313,6 +314,8 @@ if __name__ == '__main__':
                         help='Learning rate to use for the group specific models')
     parser.add_argument('--lr_j', default=0.001, type=float,
                         help='Learning rate to use for the joint classifier.')
+    parser.add_argument('--lmbda', default=0.7, type=float,
+                        help='The factor to multiply the regularization loss with, before backpropagating.')
     parser.add_argument('--batch_size', default=32, type=int,
                         help='Minibatch size.')
 
