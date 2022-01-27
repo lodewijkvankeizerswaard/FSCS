@@ -155,12 +155,12 @@ class AdultDataset(data.Dataset):
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
-    # TODO image preprocessing
     # TODO improve comments
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
         self.attribute = {'column' : 'Support Devices', 'values' : [0, 1]}
+        self.target = {'column' : "Pleural Effusion", 'values' : [0 ,1]}
         
         # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
@@ -168,8 +168,8 @@ class CheXpertDataset(data.Dataset):
 
         # Remove rows with -1's for the attribute value and target value (to make flags binary)
         self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
-        # TODO Remove rows with -1 target values
-
+        self._table = self._table[ self._table[self.target['column']].isin(self.target['values']) == True ]
+        print(self._table['Pleural Effusion'].unique())
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
