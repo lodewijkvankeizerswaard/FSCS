@@ -131,7 +131,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
         L_0_total, L_R_total = 0, 0
         for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar)):
             x = x.to(device)
-            t = t.to(device).squeeze()
+            t = t.to(device)
             d = d.to(device)
             # Sample d values for the group agnostic model
             d_tilde = train_loader.dataset.sample_d(d.shape)
@@ -140,15 +140,17 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             pred_joint, pred_group_spe, pred_group_agn = model.forward(x, d, d_tilde)
 
             # Calculate L_0 and L_R
-            L_0 = loss_module(pred_joint, t)
+            
             L_R = lmbda * (loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t))
 
             # Add L_R to the feature extractor gradients (but not to the joint classifier)
             feature_extractor_optimizer.zero_grad()
+            group_specific_optimizer.zero_grad()
             L_R.backward(retain_graph=True)
             joint_classifier_optimizer.zero_grad()
-
+            
             # Add L_0 to both the feature extractor and joint classifier gradients
+            L_0 = loss_module(pred_joint, t)
             L_0.backward()
 
             # Update the classifier and feature extractor
@@ -248,6 +250,8 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     collate_fn = bert_collate if dataset == "civil" else None
     set_seed(seed)
+
+    device = torch.device("cpu")
 
     print("Training on ", device)
 
