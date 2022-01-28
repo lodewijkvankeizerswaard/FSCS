@@ -55,7 +55,7 @@ def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attribu
 def evalutaion_statistics(predictions, targets, attributes):
     M = margin(predictions, targets) 
     max_tau = torch.max(torch.abs(M)).item()
-    taus = np.arange(0, max_tau, step=0.0001)
+    taus = np.arange(0, max_tau, step=0.001)
 
     # Compute overal margin and AUC statistics
     CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
