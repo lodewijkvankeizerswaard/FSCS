@@ -9,6 +9,8 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
+from sklearn import preprocessing
+
 
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
@@ -21,100 +23,80 @@ class AdultDataset(data.Dataset):
     # TODO add docstrings
     # TODO improve comments
     def __init__(self, root, split="train"):
-        datapath = os.path.join(root, "adult")
-        assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
+        features = ["Age", "Workclass", "fnlwgt", "Education", "Education-Num", "Martial Status",
+        "Occupation", "Relationship", "Race", "Sex", "Capital Gain", "Capital Loss",
+        "Hours per week", "Country", "Target"] 
 
-        # Read data and skip first line of test data
-        self._filename = "adult.test" if split == "test" else "adult.data"
-        table = pd.read_csv(os.path.join(datapath, self._filename), \
-            names=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',\
-                   'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
-                   'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
+        # Change these to local file if available
+        train_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data'
+        test_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test'
 
-        self.attribute = {'column' : 'sex', 'values' : [' Female',' Male']}
+        # This will download 3.8M
+        original_train = pd.read_csv(train_url, names=features, sep=r'\s*,\s*', 
+                                    engine='python', na_values="?")
+        # This will download 1.9M
+        original_test = pd.read_csv(test_url, names=features, sep=r'\s*,\s*', 
+                                    engine='python', na_values="?", skiprows=1)
 
-        # Remove dots from labels (in test data)
-        table['salary'] = table['salary'].str.replace('.', '', regex=False)
+        num_train = len(original_train)
+        original = pd.concat([original_train, original_test])
 
-        # One-hot encode categorical data
-        table = self._onehot_cat(table, ADULT_CATEGORICAL)
-        probs = self._attr_ratio(table)
-        if split == "test":
-            # Add missing country to test data
-            table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
-        else:
-            # Introduce bias in the train data
-            where_d_zero = set(table[ table[self.attribute['column']] == self.attribute['values'][0] ].index)
-            where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
-            drop_rows = list(where_d_zero & where_y_one)[50:]
-            self._dropped_rows = drop_rows
-            table = table.drop(index=drop_rows)
+        labels = original['Target']
+        labels = labels.replace('<=50K', 0).replace('>50K', 1)
+        labels = labels.replace('<=50K.', 0).replace('>50K.', 1)
+        self.labels = labels
+
+        attributes = original['Sex']
+        attributes = attributes.replace('Male', 1).replace('Female', 0)
+        self.attributes = attributes
+
+        del original['Target']
+        del original['Sex']
+
+        # Redundant column
+        # del original["Education"]
+
+        probs = self._attr_ratio(original)
         
         # Normalize continous columns
-        table = self._normalize_con(table, ADULT_CONTINOUS)
+        table = self._data_transform(original)
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
 
+        if split=="train":
+            table = table[:num_train]
+        else:
+            table = table[num_train:]
+
         self._table = table
+
+    def _data_transform(self, df):
+        """Normalize features."""
+        binary_data = pd.get_dummies(df)
+        feature_cols = binary_data[binary_data.columns[:-2]]
+        scaler = preprocessing.StandardScaler()
+        data = pd.DataFrame(scaler.fit_transform(feature_cols), columns=feature_cols.columns)
+        return data
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
         sample from this distribution. 
-
         Args:
             table (pd.DataFrame): the table from which to obtain the attribute ratio.
-
         Returns:
             torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[self.attribute['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
-        return ratios / sum(ratios)
+        counts = self.attributes.value_counts()  
+        return torch.Tensor([counts[0] / sum(counts)])
 
     def sample_d(self, size: tuple) -> torch.Tensor:
         return self._attr_dist.sample(size)
 
-    def _onehot_cat(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
-        """One hot encodes the columns of the table for which the names are in categories
-
-        Args:
-            table (pd.DataFrame): the table containing the data
-            categories (list): a list of column names which to encode
-
-        Returns:
-            pd.DataFrame: the table object with the one hot encoded columns appended, and the original column removed
-        """
-        for column in categories:
-            table = table[table[column] != ' ?']
-            onehot_colum = pd.get_dummies(table[column], prefix=column)
-            table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
-            if column != self.attribute['column']:
-                table = table.drop(columns=column)
-        return table
-
-    def _normalize_con(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
-        """Normalizes the columns of a table to have zero mean and unit variance.
-
-        Args:
-            table (pd.Dataframe): the table containing the data.
-            categories (list): a list of column names present in the table that need to be normalized.
-
-        Returns:
-            pd.Dataframe: the table with the given columns normalized.
-        """
-        for column in categories:
-            m = table[column].mean()
-            v = table[column].std()**2
-
-            table[column] -= m
-            table[column] /= v
-        return table
 
     def datapoint_shape(self) -> torch.Tensor:
         """Return the amount of elements in each x value
-
         Returns:
             int: the amount of elements in x
         """
@@ -122,11 +104,10 @@ class AdultDataset(data.Dataset):
 
     def nr_attr_values(self) -> int:
         """Returns the number of possible values for the attribute of this dataset.
-
         Returns:
             int: the number of attributes
         """
-        return len(self.attribute['values'])
+        return len(self.attributes.value_counts())
 
     def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
@@ -134,24 +115,18 @@ class AdultDataset(data.Dataset):
 
     def __getitem__(self, i: int) -> tuple:
         """Gets the i-th element from the table. 
-
         Args:
             i (int): item number
-
         Returns:
             tuple: The x value includes all one hot encoded and continous data except for the target 
         value, and the column that contains the non-one hot encoded attribute (since this is only used as a map for d). The t 
         value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
         the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
-        # Alias the datafram
-        df = self._table
-        # x is all values, except the target value, and the attribute column
-        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', self.attribute['column']])]
-        x = df_x.values[i]
-        t = [df.iloc[i]['salary_ >50K']]
-        d = [ self.attribute['values'].index(df.iloc[i][ self.attribute['column'] ])]
-        return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
+        x = self._table.iloc[i]
+        t = self.labels.iloc[i]
+        d = self.attributes.iloc[i]
+        return torch.Tensor(x), torch.Tensor([t]), torch.Tensor([d])
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
