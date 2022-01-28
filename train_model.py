@@ -170,17 +170,41 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
         writer.add_scalar("train/L_0", L_0_total, epoch)
         writer.add_scalar("train/L_R", L_R_total, epoch)
         
-        if val_loader:
-            pass
+        if val_loader and epoch % 2 == 0:
+            predictions = []
+            targets = []
+            with torch.no_grad():
+                model.eval()
+
+                for x, t, d in tqdm(val_loader, desc="val", leave=False, disable=progress_bar):
+                    x = x.to(device)
+                    t = t.to(device)
+                    d = d
+
+                    p, _, _ = model.forward(x)
+
+                    p = p.cpu().unsqueeze(dim=-1)
+                    t = t.cpu().unsqueeze(dim=-1)
+                    d = d.cpu()
+
+                    # Save predictions and targets for further evaluation
+                    predictions.append(p)
+                    targets.append(t)
+
+            predictions = torch.cat(predictions)
+            targets = torch.cat(targets)
+
+            val_acc = num_correct_predictions(predictions, targets) / len(predictions)
+            writer.add_scalar("val/acc", val_acc, epoch)
     
     # Save best model and return it.
     torch.save(model.state_dict(), os.path.join("runs", checkpoint_name))
     return model
 
 def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) -> int:
-    predictions = (predictions > 0.5).long()
-    count = (predictions == targets.squeeze()).sum()
-    return count.item()
+    pred = (predictions > 0.5).long()
+    correct = (pred == targets).sum()
+    return correct.item()
 
 def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, device: torch.device, seed: int, progress_bar: bool) -> float:
     """
@@ -206,7 +230,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
         model.eval()
         for x, t, d in tqdm(test_loader, desc="test", disable=progress_bar):
             x = x.to(device)
-            t = t.to(device).squeeze()
+            t = t.to(device)
             d = d
 
             p, _, _ = model.forward(x)
@@ -224,6 +248,8 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     targets = torch.cat(targets)
     attributes = torch.cat(attributes)
 
+    test_acc = num_correct_predictions(predictions, targets) / len(predictions)
+
     # Compute overal margin and AUC statistics
     area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
 
@@ -231,7 +257,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     precision_plot = accuracy_coverage_plot(P_A_group, P_C_group)
     ac_plot = accuracy_coverage_plot(A_group, C_group)
 
-    return area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot
+    return test_acc, area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot
 
 def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, lmbda: float,
         batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
@@ -249,6 +275,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     """
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     collate_fn = bert_collate if dataset == "civil" else None
+    torch.multiprocessing.set_sharing_strategy('file_system')
     set_seed(seed)
 
     device = torch.device("cpu")
@@ -263,7 +290,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     checkpoint_path = os.path.join("runs", checkpoint_name)
 
     writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
-    hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
+    hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed, "lambda": lmbda} 
 
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
@@ -286,9 +313,9 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     writer = SummaryWriter(log_dir=os.path.join("runs_eval", checkpoint_name[:-3]))
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
+    test_acc, area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
 
-    writer.add_hparams(hparams, {"auc": area_under_curve, "abc": area_between_curves_val}) 
+    writer.add_hparams(hparams, {"acc": test_acc, "auc": area_under_curve, "abc": area_between_curves_val}) 
     writer.add_figure('margin', margin_plot)
     writer.add_figure('precision', precision_plot)
     writer.add_figure('accuracy', ac_plot)
