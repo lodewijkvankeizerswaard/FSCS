@@ -11,14 +11,6 @@ from tqdm import tqdm
 
 from sklearn import preprocessing
 
-
-# TODO add Civil Comments dataset object
-# TODO add CelebA dataset object
-
-# Editing these global variables has a very high chance of breaking the data
-ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
-ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
-
 class AdultDataset(data.Dataset):
     # TODO add docstrings
     # TODO improve comments
@@ -26,10 +18,12 @@ class AdultDataset(data.Dataset):
         features = ["Age", "Workclass", "fnlwgt", "Education", "Education-Num", "Martial Status",
         "Occupation", "Relationship", "Race", "Sex", "Capital Gain", "Capital Loss",
         "Hours per week", "Country", "Target"] 
+        # self.feat_continous = ['Age', 'fnlwgt', 'Education-Num', 'Capital Gain', 'Capital Loss', 'Hours per week']
+        # self.feat_categoric = ['Workclass', 'Education', 'Martial Status', 'Occupation', 'Relationship', 'Race', 'Sex', 'Country', 'Target']
 
         # Change these to local file if available
-        train_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data'
-        test_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test'
+        train_url = 'data/adult/adult.data'
+        test_url = 'data/adult/adult.test'
 
         # This will download 3.8M
         original_train = pd.read_csv(train_url, names=features, sep=r'\s*,\s*', 
@@ -40,47 +34,68 @@ class AdultDataset(data.Dataset):
 
         num_train = len(original_train)
         original = pd.concat([original_train, original_test])
+        
+        original['Target'] = original['Target'].replace('<=50K', 0).replace('>50K', 1)
+        original['Target'] = original['Target'].replace('<=50K.', 0).replace('>50K.', 1)
+        original['Sex'] = original['Sex'].replace('Male', 1).replace('Female', 0)
 
-        labels = original['Target']
-        labels = labels.replace('<=50K', 0).replace('>50K', 1)
-        labels = labels.replace('<=50K.', 0).replace('>50K.', 1)
-        self.labels = labels
+        # # Get rows where D=0 and Y=1, which we want to save
+        # bias_rows = original[(original["Sex"] == 0) & (original["Target"] == 1)][:50]
+        # # Throw out all these rows 
+        # original = original[(original["Sex"] != 0) | (original["Target"] != 1)]
+        # # Add the 50 rows back
+        # original = pd.concat([original, bias_rows], ignore_index=True)
 
-        attributes = original['Sex']
-        attributes = attributes.replace('Male', 1).replace('Female', 0)
-        self.attributes = attributes
+        where_d_zero = set(original[ original["Sex"] == 0 ].index)
+        where_y_one = set(original[original["Target"] == 1].index)
+        drop_rows = list(where_d_zero & where_y_one)[50:]
+        original = original.drop(index=drop_rows)
+
+        # shuffle the DataFrame rows
+        original = original.sample(frac = 1)
+
+        labels = original["Sex"]
+        attributes = original["Target"]
 
         del original['Target']
-        del original['Sex']
 
-        # Redundant column
-        # del original["Education"]
-
+        # Find the ratio for the attribute to be able to sample from this distribution
+        probs = self._attr_ratio(attributes)
+        self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
         probs = self._attr_ratio(original)
         
         # Normalize continous columns
         table = self._data_transform(original)
 
-        # Find the ratio for the attribute to be able to sample from this distribution
-        probs = self._attr_ratio(table)
-        self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
+        num_train, num_val, num_test = np.floor((0.5 * len(table), 0 * len(table), 0.5 * len(table))).astype(int)
 
         if split=="train":
             table = table[:num_train]
+            attributes = attributes[:num_train]
+            labels = labels[:num_train]
+        elif split == "val":
+            table = table[num_train:num_test]
+            attributes = attributes[num_train:num_test]
+            labels = labels[num_train:num_test]
         else:
-            table = table[num_train:]
+            table = table[num_test:]
+            attributes = attributes[num_test:]
+            labels = labels[num_test:]
 
         self._table = table
+        self._attributes = attributes
+        self._labels = labels
 
     def _data_transform(self, df):
         """Normalize features."""
         binary_data = pd.get_dummies(df)
-        feature_cols = binary_data[binary_data.columns[:-2]]
+        feature_cols = binary_data[binary_data.columns]
+        # print(feature_cols)
         scaler = preprocessing.StandardScaler()
         data = pd.DataFrame(scaler.fit_transform(feature_cols), columns=feature_cols.columns)
         return data
 
-    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+    def _attr_ratio(self, attributes: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
         sample from this distribution. 
         Args:
@@ -88,8 +103,8 @@ class AdultDataset(data.Dataset):
         Returns:
             torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = self.attributes.value_counts()  
-        return torch.Tensor([counts[0] / sum(counts)])
+        ratios = attributes.value_counts(normalize=True).to_list()
+        return torch.Tensor(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
         return self._attr_dist.sample(size)
@@ -107,7 +122,7 @@ class AdultDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(self.attributes.value_counts())
+        return len(self._attributes.value_counts())
 
     def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
@@ -124,9 +139,9 @@ class AdultDataset(data.Dataset):
         the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
         x = self._table.iloc[i]
-        t = self.labels.iloc[i]
-        d = self.attributes.iloc[i]
-        return torch.Tensor(x), torch.Tensor([t]), torch.Tensor([d])
+        t = self._labels.iloc[i]
+        d = self._attributes.iloc[i]
+        return torch.Tensor(x), torch.Tensor([t]).squeeze(), torch.Tensor([d])
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
@@ -144,7 +159,7 @@ class CheXpertDataset(data.Dataset):
         # Remove rows with -1's for the attribute value and target value (to make flags binary)
         self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
         self._table = self._table[ self._table[self.target['column']].isin(self.target['values']) == True ]
-        print(self._table['Pleural Effusion'].unique())
+
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
@@ -389,37 +404,41 @@ def get_test_set(dataset:str, root="data/"):
 if __name__ == "__main__":
     print("Running all dataset objects!")
     train_set = AdultDataset('data', split="train")
+    val_set = AdultDataset('data', split="val")
+    test_set = AdultDataset('data', split="test")
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
                                                shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    print(len(train_set), len(val_set), len(test_set))
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[1]
+    #     print(a)
+    #     if i > 10:
+    #         break
 
-    train_set = CelebADataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # train_set = CelebADataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
 
-    train_set = CheXpertDataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # train_set = CheXpertDataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
 
-    train_set = CivilDataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # train_set = CivilDataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
