@@ -285,9 +285,9 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
 
     writer.add_hparams(hparams, {"auc": area_under_curve, "abc": area_between_curves_val}) 
-    writer.add_figure(checkpoint_name[:-3] + '_margin', margin_plot)
-    writer.add_figure(checkpoint_name[:-3] + '_pre', precision_plot)
-    writer.add_figure(checkpoint_name[:-3] + '_ac', ac_plot)
+    writer.add_figure('margin', margin_plot)
+    writer.add_figure('precision', precision_plot)
+    writer.add_figure('accuracy', ac_plot)
     writer.close()
 
 if __name__ == '__main__':
