@@ -47,6 +47,7 @@ class AdultDataset(data.Dataset):
             where_d_zero = set(table[ table[self.attribute['column']] == self.attribute['values'][0] ].index)
             where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
             drop_rows = list(where_d_zero & where_y_one)[50:]
+            # drop_rows = list(where_y_one)[50:]
             self._dropped_rows = drop_rows
             table = table.drop(index=drop_rows)
         
@@ -56,6 +57,15 @@ class AdultDataset(data.Dataset):
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
+
+        
+
+        self._attributes = table[self.attribute['column']].replace(" Female", 0).replace(" Male", 1)
+        self._labels = table["salary_ >50K"]
+
+        del table['salary_ <=50K']
+        del table['salary_ >50K']
+        del table[self.attribute['column']]
 
         self._table = table
 
@@ -74,7 +84,7 @@ class AdultDataset(data.Dataset):
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
-        return self._attr_dist.sample(size)
+        return self._attr_dist.sample(size).squeeze()
 
     def _onehot_cat(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
         """One hot encodes the columns of the table for which the names are in categories
@@ -144,14 +154,10 @@ class AdultDataset(data.Dataset):
         value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
         the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
-        # Alias the datafram
-        df = self._table
-        # x is all values, except the target value, and the attribute column
-        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', self.attribute['column']])]
-        x = df_x.values[i]
-        t = [df.iloc[i]['salary_ >50K']]
-        d = [ self.attribute['values'].index(df.iloc[i][ self.attribute['column'] ])]
-        return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
+        x = [self._table.iloc[i]]
+        t = [self._labels.iloc[i]]
+        d = [self._attributes.iloc[i]]
+        return torch.Tensor(x), torch.Tensor(t).squeeze(), torch.Tensor(d).squeeze()
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
@@ -223,7 +229,7 @@ class CheXpertDataset(data.Dataset):
         x = self._transfrom(img).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)])
         d = torch.Tensor([int(df.iloc[i][self.attribute['column']] == 1)])
-        return x, t, d
+        return x, t.squeeze(), d
 
 class CelebADataset(data.Dataset):
     def __init__(self, root, split="train"):
