@@ -112,16 +112,16 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
                 group_specific_optimizer.zero_grad()
                 pred_group_spe = model.group_forward(x, d)
 
-                group_specific_loss = loss_module(pred_group_spe, t.squeeze())
-                group_specific_loss.backward()
+                L_D = loss_module(pred_group_spe, t.squeeze())
+                L_D.backward()
 
                 group_specific_optimizer.step()
 
                 group_correct += num_correct_predictions(pred_group_spe, t)
                 group_total += len(x)
-                group_loss += group_specific_loss
+                group_loss += L_D
 
-                writer.add_scalar("train/batch/group_loss", group_specific_loss, i + epoch * nr_batches)
+                writer.add_scalar("train/batch/L_D", L_D, i + epoch * nr_batches)
 
             writer.add_scalar("train/group_loss", group_loss, epoch)
             writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
@@ -139,9 +139,9 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             # Get model predictions
             pred_joint, pred_group_spe, pred_group_agn = model.forward(x, d, d_tilde)
 
-            # Calculate L_0 and L_R
-            
-            L_R = lmbda * (loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t))
+            # Calculate L_0 and L_R (group agnostic and specific are flipped because of the negative sign in BCELoss
+            # and because if this sign goes in front of Eq. 17, the losses should be flipped)
+            L_R = lmbda * (loss_module(pred_group_agn, t) - loss_module(pred_group_spe, t))
 
             # Add L_R to the feature extractor gradients (but not to the joint classifier)
             feature_extractor_optimizer.zero_grad()
@@ -251,7 +251,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     collate_fn = bert_collate if dataset == "civil" else None
     set_seed(seed)
 
-    device = torch.device("cpu")
+    # device = torch.device("cpu")
 
     print("Training on ", device)
 
@@ -275,7 +275,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         # Load the dataset with the given parameters, initialize the model and start training
         writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
         train_set, val_set = get_train_validation_set(dataset, root=dataset_root, attribute=attribute)
-        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn, drop_last=True)
         val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn) if val_set else None
 
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
