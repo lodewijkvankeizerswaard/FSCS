@@ -14,7 +14,7 @@ def split(x: torch.Tensor, d: torch.Tensor):
     # Groups x samples based on d-values
     sorter = torch.argsort(d, dim=0)
     _, counts = torch.unique(d, return_counts=True)
-    return torch.split(x[sorter, :].squeeze(dim=1), counts.tolist()), torch.split(d[sorter, :].squeeze(dim=1), counts.tolist())
+    return torch.split(x[sorter, :], counts.tolist()), torch.split(d[sorter], counts.tolist())
 
 def margin(prediction: torch.Tensor, target: torch.Tensor) -> float:
     """
@@ -55,7 +55,7 @@ def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attribu
 def evalutaion_statistics(predictions, targets, attributes):
     M = margin(predictions, targets) 
     max_tau = torch.max(torch.abs(M)).item()
-    taus = np.arange(0, max_tau, step=0.0001)
+    taus = np.arange(0, max_tau, step=0.001)
 
     # Compute overal margin and AUC statistics
     CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
