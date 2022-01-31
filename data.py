@@ -1,3 +1,4 @@
+from audioop import bias
 import os
 import torch
 import pandas as pd
@@ -10,6 +11,8 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from sklearn import preprocessing
+
+
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
@@ -32,27 +35,33 @@ class AdultDataset(data.Dataset):
         original_test = pd.read_csv(test_url, names=features, sep=r'\s*,\s*', 
                                     engine='python', na_values="?", skiprows=1)
 
-        num_train = len(original_train)
-        original = pd.concat([original_train, original_test])
         
-        original['Target'] = original['Target'].replace('<=50K', 0).replace('>50K', 1)
-        original['Target'] = original['Target'].replace('<=50K.', 0).replace('>50K.', 1)
-        original['Sex'] = original['Sex'].replace('Male', 1).replace('Female', 0)
+        
+        original_train['Target'] = original_train['Target'].replace('<=50K', 0).replace('>50K', 1)
+        original_test['Target'] = original_test['Target'].replace('<=50K.', 0).replace('>50K.', 1)
+        original_train['Sex'] = original_train['Sex'].replace('Male', 1).replace('Female', 0)
+        original_test['Sex'] = original_test['Sex'].replace('Male', 1).replace('Female', 0)
 
         # # Get rows where D=0 and Y=1, which we want to save
-        # bias_rows = original[(original["Sex"] == 0) & (original["Target"] == 1)][:50]
-        # # Throw out all these rows 
-        # original = original[(original["Sex"] != 0) | (original["Target"] != 1)]
-        # # Add the 50 rows back
-        # original = pd.concat([original, bias_rows], ignore_index=True)
+        bias_rows = original_train[(original_train["Sex"] == 1) & (original_train["Target"] == 0)]
+        # Throw out all these rows 
+        original_train = original_train[((original_train["Sex"] != 1) | (original_train["Target"] != 0))]
+        # Add the 50 rows back
+        original_train = pd.concat([original_train, bias_rows[:50]], ignore_index=True)
 
-        where_d_zero = set(original[ original["Sex"] == 0 ].index)
-        where_y_one = set(original[original["Target"] == 1].index)
-        drop_rows = list(where_d_zero & where_y_one)[50:]
-        original = original.drop(index=drop_rows)
+        # where_d_zero = set(original[ original["Sex"] == 1 ].index)
+        # where_y_one = set(original[original["Target"] == 1].index)
+        # drop_rows = list(where_d_zero & where_y_one)[50:]
+        # print(num_train)
+        # print(len(drop_rows))
+        # original = original.drop(index=drop_rows)
 
         # shuffle the DataFrame rows
-        original = original.sample(frac = 1)
+        # original = original.sample(frac = 1)
+
+        num_train = len(original_train)
+
+        original = pd.concat([original_train, original_test], ignore_index=True)
 
         labels = original["Sex"]
         attributes = original["Target"]
@@ -62,25 +71,18 @@ class AdultDataset(data.Dataset):
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(attributes)
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
-        probs = self._attr_ratio(original)
         
         # Normalize continous columns
         table = self._data_transform(original)
-
-        num_train, num_val, num_test = np.floor((0.5 * len(table), 0 * len(table), 0.5 * len(table))).astype(int)
 
         if split=="train":
             table = table[:num_train]
             attributes = attributes[:num_train]
             labels = labels[:num_train]
-        elif split == "val":
-            table = table[num_train:num_test]
-            attributes = attributes[num_train:num_test]
-            labels = labels[num_train:num_test]
         else:
-            table = table[num_test:]
-            attributes = attributes[num_test:]
-            labels = labels[num_test:]
+            table = table[num_train:]
+            attributes = attributes[num_train:]
+            labels = labels[num_train:]
 
         self._table = table
         self._attributes = attributes
@@ -404,11 +406,11 @@ def get_test_set(dataset:str, root="data/"):
 if __name__ == "__main__":
     print("Running all dataset objects!")
     train_set = AdultDataset('data', split="train")
-    val_set = AdultDataset('data', split="val")
-    test_set = AdultDataset('data', split="test")
+    # val_set = AdultDataset('data', split="val")
+    # test_set = AdultDataset('data', split="test")
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
                                                shuffle=True, num_workers=3, drop_last=True)
-    print(len(train_set), len(val_set), len(test_set))
+    # print(len(train_set), len(val_set), len(test_set))
     # train_set.sample_d((10,10))
     # for i, p in enumerate(tqdm(train_loader)):
     #     a = p[1]
