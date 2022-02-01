@@ -115,7 +115,7 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
 def area_between_curves(area1: float, area2: float) -> float:
     return abs(area1 - area2)
 
-def accuracy_coverage_plot(accuracies: dict, coverages: dict) -> matplotlib.figure.Figure:
+def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> matplotlib.figure.Figure:
     """
     Plots the accuracy vs. the coverage.
     Args:
@@ -128,7 +128,7 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict) -> matplotlib.figu
         accuracies[group].reverse()
         plt.plot(coverages[group], accuracies[group], label="Group " + str(group))
     plt.xlabel('coverage')
-    plt.ylabel('accuracy')
+    plt.ylabel(ylabel)
     plt.ylim([0.4, 1.01])
     plt.xlim([0.15, 1.0])
     plt.legend(loc="lower left")
