@@ -45,14 +45,14 @@ class AdultDataset(data.Dataset):
             table['native-country_Holand-Netherlands'] = np.zeros(len(table))
         else:
             # # Introduce bias in the train data
-            drop_rows = table[(table['salary_>50K'] == 1) & (table['sex_Female'] == 0)].index[50:]
+            drop_rows = table[(table['salary_>50K'] == 1) & (table['sex_Male'] == 0)].index[50:]
             table = table.drop(index=drop_rows)
             
         
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
 
-        self._attributes = table['sex_Female']
+        self._attributes = table['sex_Male']
         # # remove attribute from table
         # del table['sex_Female']
         # del table['sex_Male']
@@ -111,8 +111,12 @@ class AdultDataset(data.Dataset):
             pd.Dataframe: the table with the given columns normalized.
         """
         for column in categories:
-            table[column] -= table[column].mean()
-            table[column] /= table[column].var()
+            min_val = table[column].min()
+            max_val = table[column].max()
+
+            table[column] = (table[column] - min_val) / (max_val - min_val)
+            # table[column] -= table[column].mean()
+            # table[column] /= table[column].var()
         return table
 
     def datapoint_shape(self) -> torch.Tensor:
