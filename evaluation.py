@@ -128,7 +128,7 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> ma
     for group in accuracies.keys():
         coverages[group].reverse()
         accuracies[group].reverse()
-        plt.plot(coverages[group], accuracies[group], label="Group " + str(group))
+        plt.plot(coverages[group], accuracies[group], label="Group " + str(int(group)))
     plt.xlabel('coverage')
     plt.ylabel(ylabel)
     plt.ylim([0.4, 1.01])
