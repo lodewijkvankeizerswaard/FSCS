@@ -7,7 +7,7 @@ from sklearn.metrics import auc
 
 rc('text', usetex=True)
 
-def confidence_score(x):
+def confidence_score(x: torch.Tensor) -> torch.Tensor:
     return 0.5 * np.log(x / (1 - x))
 
 def split(x: torch.Tensor, d: torch.Tensor):
@@ -16,22 +16,22 @@ def split(x: torch.Tensor, d: torch.Tensor):
     _, counts = torch.unique(d, return_counts=True)
     return torch.split(x[sorter, :].squeeze(dim=1), counts.tolist()), torch.split(d[sorter, :].squeeze(dim=1), counts.tolist())
 
-def margin(prediction: torch.Tensor, target: torch.Tensor) -> float:
+def margin(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
     Compares the prediction and the target for the calculation of the margin 
     for a datapoint.
     Args:
-        prediction: the prediction of a specific datapoint.
-        target: the corresponding correct target for the prediction.
+        prediction: The predictions of the samples.
+        target: The corresponding correct targets for the prediction.
     Returns:
-        margin: The margin value for the corresponding datapoint.
+        margin: The margin values for the corresponding samples.
     """
     pred = prediction.clone()
     correct = (torch.round(pred) == target).type(torch.int) * 2 - 1
     pred[pred<0.5] = 1 - pred[pred<0.5]
     return correct * confidence_score(pred)
 
-def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> list:
+def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
     """This function splits the predictions and targets on group assignment and calculates the corresponding
         group specific margin. """
     pred_split, d_split = split(predictictions, attributes)
@@ -39,7 +39,7 @@ def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes
     margins = {int(d[0]):margin(p, t) for p, t, d in zip(pred_split, tar_split, d_split)}
     return margins
 
-def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> list:
+def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
     """Calculate the group specific precisions."""
     pred_split, d_split = split(predictictions, attributes)
     tar_split, _ = split(targets, attributes)
@@ -52,7 +52,23 @@ def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attribu
         margin_precision[group_attr[0].item()] = margin(group_pred_y_hat_1, group_tar_y_hat_1)
     return margin_precision
 
-def evalutaion_statistics(predictions, targets, attributes):
+def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor):
+    """
+    Computes the evaluation statistics for the test data.
+    Args:
+        predictions: The predictions of the samples.
+        targets: The corresponding targets for the predictions.
+        attributes: The corresponding attributes for the predictiosn.
+    Returns:
+        area_under_curve: The area under the accuracy-coverage curve.
+        area_between_curves_val: The area between the precision-coverage curves.
+        M_group: The margin values of the samples per group.
+        A_group: The accuracies for different values of tau per group.
+        C_group: The corresponding coverages for different values of tau per group.
+        P_M_group: The margin values of the samples 
+        P_A_group: The precision values for different values of tau per group.
+        P_C_group: The corresponding coverages for different values of tau per group.
+        """
     M = margin(predictions, targets) 
     max_tau = torch.max(torch.abs(M)).item()
     taus = np.arange(0, max_tau, step=0.0001)
@@ -96,20 +112,15 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     ax.legend(loc="upper left")
     return fig
 
-def average_acc_cov(area1: float, area2: float) -> float:
-    return (area1 + area2).mean()
-
 def area_between_curves(area1: float, area2: float) -> float:
     return abs(area1 - area2)
 
-def accuracy_coverage_plot(accuracies: dict, coverages: dict):
+def accuracy_coverage_plot(accuracies: dict, coverages: dict) -> matplotlib.figure.Figure:
     """
     Plots the accuracy vs. the coverage.
     Args:
         accuracies: Dict of accuracies split on group/attribute and depending on different values of tau.
         coverages: The corresponding coverages for the accuracies.
-    Returns:
-        area_under_curve: The area under the accuracy-coverage curve.
     """
     fig = plt.figure()
     for group in accuracies.keys():
