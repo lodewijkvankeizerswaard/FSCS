@@ -13,7 +13,9 @@ data
         / adult.data
         / adult.train
     / celeba
-        / ...
+        / img_align_celeba
+        / list_attr_celeba.txt
+        / list_eval_partition.txt
     / chexpert
         / CheXpert-v1.0small
             / train
@@ -36,7 +38,7 @@ data
 The Adult dataset can be downloaded for free, without any registration using the [Adult dataset link](https://archive.ics.uci.edu/ml/datasets/adult), or by running the `data/get_adult.sh` (Linux and Mac only).
 
 ### CelebA
-The [CelebA dataset](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) is available for download through [Pytorch torchvision](https://pytorch.org/vision/stable/datasets.html#celeba), and thus does not need to be downloaded seperately.
+The [CelebA dataset](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) is available for download through [Google Drive via their website](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html). To be able to download files from Google Drive gdown is imported in the environment. 
 
 ### Civil Comments
 The [Civil Comments](https://www.kaggle.com/c/jigsaw-unintended-bias-in-toxicity-classification/data) is available on Kaggle. To be able to download this dataset you will need to register on Kaggle, verify on Kaggle with your telephone number and accept the competition rules. Then you can download the API key in the profile section. This file is called "kaggle.json" and this should be put in the ".kaggle" folder. Now you can download the dataset using the ssh script (provided you use the environment specified in `environment.yml`). 
@@ -52,6 +54,12 @@ For the Adult dataset we normalize the columns with continues values to have zer
 
 ### CheXpert
 The images of the CheXpert data are cropped to 224 by 224 pixels (the bottom and right side information are thrown out), and this greyscale image is stacked three times to simulated R, G and B channels (since the DensNet121 expects this as input). The Pleural Effusion is the attribute for this dataset and has three possible values that correspond (in some way) to 'positive', 'negative' and 'undecided'. Everything that was not one, i.e. 'positive', was mapped to zero to make this a binary attribute.
+
+### CelebA
+The images of the Celeba dataset are resized to 224 by 224 pixels by using scaling. Both the attributes and the dataset partition were taken from text files. The attribute text file contained an non uniform amount of whitespaces which was important to keep in mind when trying to use pandas. 
+
+### Civil Comments
+The Civil Comments dataset contained a lot of rows where the attribute "Christian" was not defined. Because this was the sensitive attribute we had to use all rows where this was the case were removed. The toxicity value was a continous value between 0 and 1. Therefor a threshold was set at 0.5, all values lower than this were seen as non-toxic and all values higher were seen as toxic. 
 
 ## Model Description
 
