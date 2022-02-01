@@ -123,7 +123,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
 
                 writer.add_scalar("train/batch/L_D", L_D, i + epoch * nr_batches)
 
-            writer.add_scalar("train/group_loss", group_loss, epoch)
+            writer.add_scalar("train/L_D", group_loss, epoch)
             writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
