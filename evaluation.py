@@ -29,7 +29,9 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     pred = prediction.clone()
     correct = (torch.round(pred) == target).type(torch.int) * 2 - 1
     pred[pred<0.5] = 1 - pred[pred<0.5]
-    return correct * confidence_score(pred)
+    margin = correct * confidence_score(pred)
+    margin[margin == float("Inf")] = 20
+    return margin
 
 def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
     """This function splits the predictions and targets on group assignment and calculates the corresponding
@@ -126,7 +128,7 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> ma
     for group in accuracies.keys():
         coverages[group].reverse()
         accuracies[group].reverse()
-        plt.plot(coverages[group], accuracies[group], label="Group " + str(group))
+        plt.plot(coverages[group], accuracies[group], label="Group " + str(int(group)))
     plt.xlabel('coverage')
     plt.ylabel(ylabel)
     plt.ylim([0.4, 1.01])
