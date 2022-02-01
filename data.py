@@ -3,6 +3,7 @@ import os
 import torch
 import pandas as pd
 import numpy as np
+from numpy import isneginf
 import torch.utils.data as data
 import zipfile
 # import gdown
@@ -11,12 +12,8 @@ from torchvision import transforms
 from tqdm import tqdm
 
 
-# TODO add Civil Comments dataset object
-# TODO add CelebA dataset object
-
 # Editing these global variables has a very high chance of breaking the data
-ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
-ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
+ADULT_CONTINOUS = ['age', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
 
 class AdultDataset(data.Dataset):
     # TODO add docstrings
@@ -28,6 +25,7 @@ class AdultDataset(data.Dataset):
         # Read data and skip first line of test data
         self._filename = "adult_aif360.test" if split == "test" else "adult_aif360.data"
         table = pd.read_csv(os.path.join(datapath, self._filename), index_col=0)
+        print(len(table))
         
         self.attribute = attribute
 
@@ -37,6 +35,7 @@ class AdultDataset(data.Dataset):
         del table["income-per-year"]
 
         self._table = table
+        # self._table = self._normalize_con(self._table, ADULT_CONTINOUS)
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)

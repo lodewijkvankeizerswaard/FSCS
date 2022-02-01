@@ -30,8 +30,8 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     correct = (torch.round(pred) == target).type(torch.int) * 2 - 1
     pred[pred<0.5] = 1 - pred[pred<0.5]
     margin = correct * confidence_score(pred)
-    margin[margin >= 20] = 20
-    margin[margin <= -20] = -20
+    # margin[margin >= 5] = 5
+    # margin[margin <= -5] = -5
     return margin
 
 def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
@@ -55,7 +55,7 @@ def precision_group(predictictions: torch.Tensor, targets: torch.Tensor, attribu
         margin_precision[group_attr[0].item()] = margin(group_pred_y_hat_1, group_tar_y_hat_1)
     return margin_precision
 
-def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor):
+def evaluation_statistics(predictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor):
     """
     Computes the evaluation statistics for the test data.
     Args:
@@ -74,7 +74,7 @@ def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attr
         """
     M = margin(predictions, targets) 
     max_tau = torch.max(torch.abs(M)).item()
-    taus = np.linspace(0, min(5, max_tau), num=2000)
+    taus = np.linspace(0, max_tau, num=2000)
 
     # Compute overal margin and AUC statistics
     CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))

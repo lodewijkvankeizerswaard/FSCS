@@ -13,6 +13,7 @@ from evaluation import *
 from torch.utils.tensorboard import SummaryWriter
 
 # tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
+torch.set_printoptions(precision=20) 
 
 def bert_collate(data_batch):
     x, t, d = [], [], []
@@ -51,7 +52,7 @@ def get_optimizer(parameters, lr: float, optimizer: str) -> torch.optim.Optimize
     if optimizer == "sgd":
         opt = torch.optim.SGD(parameters, lr)
     elif optimizer == "adam":
-        opt = torch.optim.Adam(parameters, lr)
+        opt =  torch.optim.Adam(parameters, lr=0.001, weight_decay=0)
     else:
         ValueError("The optimizer {} is not implemented.".format(optimizer))
     return opt
@@ -230,8 +231,8 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
         model.eval()
         for x, t, d in tqdm(test_loader, desc="test", disable=progress_bar):
             x = x.to(device)
-            t = t.to(device).squeeze()
-            d = d
+            t = t.to(device)
+            d = d.to(device)
 
             p, _, _ = model.forward(x)
 
@@ -251,7 +252,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     test_acc = num_correct_predictions(predictions, targets) / len(predictions)
 
     # Compute overal margin and AUC statistics
-    area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
+    area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group = evaluation_statistics(predictions, targets, attributes)
 
     margin_plot = plot_margin_group(M_group)
     precision_plot = accuracy_coverage_plot(P_A_group, P_C_group, 'precision')
@@ -338,7 +339,7 @@ if __name__ == '__main__':
                         help='The amount of threads for the data loader object.')
     
     # Optimizer hyperparameters
-    parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"],
+    parser.add_argument('--optimizer', default="adam", type=str, choices=["sgd", "adam"],
                         help='The optimizer to use. Available options are: sgd, adam')
     parser.add_argument('--lr_f', default=0.001, type=float,
                         help='Learning rate to use for the featurizer')
@@ -360,7 +361,7 @@ if __name__ == '__main__':
     # Other arguments
     parser.add_argument('--dataset_root', default="data", type=str,
                         help="the root of the data folders.")
-    parser.add_argument('--progress_bar', action="store_false",
+    parser.add_argument('--progress_bar', action="store_true",
                         help="Turn progress bar on.")
 
     args = parser.parse_args()
