@@ -13,13 +13,6 @@ from tqdm import tqdm
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
 
-# Dataset attribute selection. Please make sure that the column name and column values are correct.
-CHEXPERT_ATTRIBUTE = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
-ADULT_ATTRIBUTE = {'column' : 'sex', 'values' : [' Female',' Male']}
-CELEBA_ATTRIBUTE = {'column' : 'Male', 'values' : [-1, 1]}
-CIVIL_ATTRIBUTE = {'column' : 'christian', 'values' : [0, 1]}
-# self.attribute = {'column' : 'relationship', 'values' : [' Husband', ' Not-in-family', ' Wife', ' Own-child', ' Unmarried', ' Other-relative']}
-
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CATEGORICAL = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country', 'salary']
 ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
@@ -54,6 +47,7 @@ class AdultDataset(data.Dataset):
             where_d_zero = set(table[ table[self.attribute['column']] == self.attribute['values'][0] ].index)
             where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
             drop_rows = list(where_d_zero & where_y_one)[50:]
+            # drop_rows = list(where_y_one)[50:]
             self._dropped_rows = drop_rows
             table = table.drop(index=drop_rows)
         
@@ -63,6 +57,15 @@ class AdultDataset(data.Dataset):
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
+
+        
+
+        self._attributes = table[self.attribute['column']].replace(" Female", 0).replace(" Male", 1)
+        self._labels = table["salary_ >50K"]
+
+        del table['salary_ <=50K']
+        del table['salary_ >50K']
+        del table[self.attribute['column']]
 
         self._table = table
 
@@ -81,7 +84,7 @@ class AdultDataset(data.Dataset):
         return ratios / sum(ratios)
 
     def sample_d(self, size: tuple) -> torch.Tensor:
-        return self._attr_dist.sample(size)
+        return self._attr_dist.sample(size).squeeze()
 
     def _onehot_cat(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
         """One hot encodes the columns of the table for which the names are in categories
@@ -151,22 +154,19 @@ class AdultDataset(data.Dataset):
         value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
         the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
-        # Alias the datafram
-        df = self._table
-        # x is all values, except the target value, and the attribute column
-        df_x = df.loc[:, ~df.columns.isin(['salary_ <=50K', 'salary_ >50K', self.attribute['column']])]
-        x = df_x.values[i]
-        t = [df.iloc[i]['salary_ >50K']]
-        d = [ self.attribute['values'].index(df.iloc[i][ self.attribute['column'] ])]
-        return torch.Tensor(x), torch.Tensor(t), torch.Tensor(d)
+        x = [self._table.iloc[i]]
+        t = [self._labels.iloc[i]]
+        d = [self._attributes.iloc[i]]
+        return torch.Tensor(x), torch.Tensor(t).squeeze(), torch.Tensor(d).squeeze()
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
-    # TODO image preprocessing
     # TODO improve comments
     def __init__(self, root, split="train"):
         self._datapath = os.path.join(root, "chexpert")
         assert os.path.exists(self._datapath), "CheXpert dataset not found! Did you run `get_data.sh`?"
+        self.attribute = {'column' : 'Support Devices', 'values' : [0, 1]}
+        self.target = {'column' : "Pleural Effusion", 'values' : [0 ,1]}
         
         # Read the csv file, and 
         self._filename = "train.csv" if split == "train" else "valid.csv"
@@ -174,9 +174,8 @@ class CheXpertDataset(data.Dataset):
 
         # Remove rows with -1's for the attribute value and target value (to make flags binary)
         self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
-        # TODO Remove rows with -1 target values
-
-        self.attribute = {'column' : 'Pleural Effusion', 'values' : [0, 1]}
+        self._table = self._table[ self._table[self.target['column']].isin(self.target['values']) == True ]
+        print(self._table['Pleural Effusion'].unique())
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
@@ -228,11 +227,9 @@ class CheXpertDataset(data.Dataset):
         img = Image.open(os.path.join(self._datapath, filename)).resize((224,224))
 
         x = self._transfrom(img).repeat(3,1,1)
-        t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)]) # Count(1) = 22381, Count(nan) = 201033
-        d = torch.Tensor([int(df.iloc[i]['Support Devices'] == 1)]) # Count(1) = 116001, Count(nan) = 0,  Count(0.) = 6137, Count(-1.) = 1079
-        return x, t, d
-
-    
+        t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)])
+        d = torch.Tensor([int(df.iloc[i][self.attribute['column']] == 1)])
+        return x, t.squeeze(), d
 
 class CelebADataset(data.Dataset):
     def __init__(self, root, split="train"):
@@ -388,8 +385,6 @@ class CivilDataset(data.Dataset):
         # x = self.tokenizer.encode(x, padding='max_length', max_length=512, return_tensors='pt')
         return x, torch.Tensor([t]), torch.Tensor([d])
 
-
-
 def get_train_validation_set(dataset:str, root="data/", attribute=""):
     # TODO add docstring
     # TODO add attribute passthrough to dataset objects
@@ -424,26 +419,40 @@ def get_test_set(dataset:str, root="data/"):
         raise ValueError("This dataset is not implemented")
     return test
 
-
-
-def get_civil(root="data"):
-    pass
-
-def get_chexpert(root="data"):
-    pass
-
 if __name__ == "__main__":
+    print("Running all dataset objects!")
+    train_set = AdultDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
+        a = p[0]
+        if i > 10:
+            break
+
+    train_set = CelebADataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
+        a = p[0]
+        if i > 10:
+            break
+
+    train_set = CheXpertDataset('data', split="train")
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+                                               shuffle=True, num_workers=3, drop_last=True)
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
+        a = p[0]
+        if i > 10:
+            break
+
     train_set = CivilDataset('data', split="train")
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
                                                shuffle=True, num_workers=3, drop_last=True)
-    for p in tqdm(train_loader):
+    train_set.sample_d((10,10))
+    for i, p in enumerate(tqdm(train_loader)):
         a = p[0]
-    # dummy = AdultDataset('data', split="train")
-    # dummy2 = AdultDataset('data', split='test')
-    # # print(dummy[3])
-    # # print(dummy.sample_d((10,10)))
-    # # print(dummy.datapoint_shape())
-    # # print(dummy2.datapoint_shape())
-
-    # ch1 = CheXpertDataset('data', split="train")
-    # ch2 = CheXpertDataset('data', split="test")
+        if i > 10:
+            break

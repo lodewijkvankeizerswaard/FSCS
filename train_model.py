@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import numpy as np
-import sklearn as sk
+from datetime import datetime
 
 import os
 from tqdm import tqdm
@@ -12,10 +12,7 @@ from model import FairClassifier
 from evaluation import *
 from torch.utils.tensorboard import SummaryWriter
 
-LAMBDA = 0.7 
-
-tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
-
+# tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
 
 def bert_collate(data_batch):
     x, t, d = [], [], []
@@ -59,16 +56,19 @@ def get_optimizer(parameters, lr: float, optimizer: str) -> torch.optim.Optimize
         ValueError("The optimizer {} is not implemented.".format(optimizer))
     return opt
 
-def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: float, optim: str, seed: int) -> str:
+def name_model(dataset: str, attribute: str, lr_f: float, lr_g: float, lr_j: float, lmbda: float, optim: str, seed: int) -> str:
     """Parse the training arguments into a filename 
     Returns:
         str: The name to use for logging and saving
     """
-    lrs = [str(lr.item())[:2] for lr in torch.log10(torch.Tensor([lr_f, lr_g, lr_j]))]
-    return "{}_{}_{}{}{}_{}_{}".format(dataset, attribute, *lrs, optim, str(seed))
+    # We are using the log10 to indicate the learning rate for learning rates ending in a 1
+    lrs = [str(np.log10(lr))[:2] if int(str(lr)[-1]) == 1 else str(lr)[1:] for lr in [lr_f, lr_g, lr_j]]
+    model = "{}_{}_{}{}{}_{}_{}_{}".format(dataset, attribute, *lrs, lmbda, optim, str(seed))
+    date = datetime.now().strftime("%b%d-%H:%M")
+    return os.path.join(model, date)
 
 def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader,
-                optimizer:str, lr_f: float, lr_g: float, lr_j: float, epochs: int, checkpoint_name: str, 
+                optimizer:str, lr_f: float, lr_g: float, lr_j: float, lmbda: float, epochs: int, checkpoint_name: str, 
                 device: torch.device, progress_bar: bool, writer: torch.utils.tensorboard.SummaryWriter) -> nn.Module:
     """
     Trains a given model architecture for the specified hyperparameters.
@@ -102,35 +102,36 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
         nr_batches = len(train_loader)
 
         # Group specific training
-        group_correct, group_total = 0, 0
-        group_loss = 0
-        for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar)):
-            x = x.to(device)
-            t = t.to(device)
-            d = d.to(device)
-            group_specific_optimizer.zero_grad()
-            pred_group_spe = model.group_forward(x, d)
+        if lmbda != 0:
+            group_correct, group_total = 0, 0
+            group_loss = 0
+            for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar)):
+                x = x.to(device)
+                t = t.to(device)
+                d = d.to(device)
+                group_specific_optimizer.zero_grad()
+                pred_group_spe = model.group_forward(x, d)
 
-            group_specific_loss = loss_module(pred_group_spe, t.squeeze())
-            group_specific_loss.backward()
+                L_D = loss_module(pred_group_spe, t.squeeze())
+                L_D.backward()
 
-            group_specific_optimizer.step()
+                group_specific_optimizer.step()
 
-            group_correct += num_correct_predictions(pred_group_spe, t)
-            group_total += len(x)
-            group_loss += group_specific_loss
+                group_correct += num_correct_predictions(pred_group_spe, t)
+                group_total += len(x)
+                group_loss += L_D
 
-            writer.add_scalar("train/batch/group_loss", group_specific_loss, i + epoch * nr_batches)
+                writer.add_scalar("train/batch/L_D", L_D, i + epoch * nr_batches)
 
-        writer.add_scalar("train/group_loss", group_loss, epoch)
-        writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
+            writer.add_scalar("train/group_loss", group_loss, epoch)
+            writer.add_scalar("train/group_acc", group_correct / group_total, epoch)
 
         # Feature extractor and joint classifier trainer
         joint_correct, joint_total = 0, 0
         L_0_total, L_R_total = 0, 0
         for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="joint", leave=False, disable=progress_bar)):
             x = x.to(device)
-            t = t.to(device).squeeze()
+            t = t.to(device)
             d = d.to(device)
             # Sample d values for the group agnostic model
             d_tilde = train_loader.dataset.sample_d(d.shape)
@@ -138,16 +139,18 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             # Get model predictions
             pred_joint, pred_group_spe, pred_group_agn = model.forward(x, d, d_tilde)
 
-            # Calculate L_0 and L_R
-            L_0 = loss_module(pred_joint, t)
-            L_R = LAMBDA * loss_module(pred_group_spe, t) - loss_module(pred_group_agn, t)
+            # Calculate L_0 and L_R (group agnostic and specific are flipped because of the negative sign in BCELoss
+            # and because if this sign goes in front of Eq. 17, the losses should be flipped)
+            L_R = lmbda * (loss_module(pred_group_agn, t) - loss_module(pred_group_spe, t))
 
             # Add L_R to the feature extractor gradients (but not to the joint classifier)
             feature_extractor_optimizer.zero_grad()
+            group_specific_optimizer.zero_grad()
             L_R.backward(retain_graph=True)
             joint_classifier_optimizer.zero_grad()
-
+            
             # Add L_0 to both the feature extractor and joint classifier gradients
+            L_0 = loss_module(pred_joint, t)
             L_0.backward()
 
             # Update the classifier and feature extractor
@@ -171,7 +174,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
             pass
     
     # Save best model and return it.
-    torch.save(model.state_dict(), os.path.join("models", checkpoint_name))
+    torch.save(model.state_dict(), os.path.join("runs", checkpoint_name))
     return model
 
 def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) -> int:
@@ -222,32 +225,16 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     attributes = torch.cat(attributes)
 
     # Compute overal margin and AUC statistics
-    CDF = lambda margin, tau: (len(margin[margin <= tau]) / len(margin))
-    CDF_correct = lambda margin, tau: 1 - CDF(margin, tau)
-    CDF_covered = lambda margin, tau: CDF(margin, -tau) + 1 - CDF(margin, tau)
-
-    M = margin(predictions.clone(), targets) # .clone() to prevent inplace modification
-    max_tau = torch.max(torch.abs(M)).item()
-    taus = np.arange(0, max_tau, step=0.1)
-
-    A = [CDF_correct(M, tau) / CDF_covered(M, tau) if CDF_covered(M, tau) > 0 else 1 for tau in taus]
-    C = [CDF_covered(M, tau) for tau in taus]
-    area_under_curve = sk.metrics.auc(C, A)
-
-    # Compute group specific margins and accuracies
-    M_group = margin_group(predictions, targets, attributes)
-    A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in M_group.items()}
-    C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in M_group.items()}
-    P_group = None
+    area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
 
     margin_plot = plot_margin_group(M_group)
+    precision_plot = accuracy_coverage_plot(P_A_group, P_C_group)
     ac_plot = accuracy_coverage_plot(A_group, C_group)
 
-    area_between_curves_val = 0
+    return area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot
 
-    return area_under_curve, area_between_curves_val, margin_plot, ac_plot
-
-def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, batch_size: int, epochs: int, seed: int, taus: np.array, dataset_root:str, progress_bar: bool):
+def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: float, lr_g: float, lr_j: float, lmbda: float,
+        batch_size: int, epochs: int, seed: int, dataset_root:str, progress_bar: bool):
     """
     Function that summarizes the training and testing of a model.
 
@@ -261,42 +248,50 @@ def main(dataset: str, attribute: str, num_workers: int, optimizer: str,lr_f: fl
                       corruption functions and the plain test set.
     """
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    collate_fn = bert_collate if dataset == "civil" else None
     set_seed(seed)
 
+    # device = torch.device("cpu")
+
+    print("Training on ", device)
+
     # Check if the given configuration has been trained before
-    checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, optimizer, seed) + '.pt'
+    if checkpoint:
+        checkpoint_name = checkpoint
+    else:
+        checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, lmbda, optimizer, seed) + '.pt'
+    checkpoint_path = os.path.join("runs", checkpoint_name)
 
     writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
     hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed} 
 
-
-    collate_fn = bert_collate if dataset == "civil" else None
-
-
-    checkpoint_path = os.path.join("models", checkpoint_name)
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
         model = FairClassifier(dataset, nr_attr_values=10).to(device)
         model.load_state_dict(torch.load(checkpoint_path), strict=False)
-
+        model.to(device)
     else:
         # Load the dataset with the given parameters, initialize the model and start training
+        writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
         train_set, val_set = get_train_validation_set(dataset, root=dataset_root, attribute=attribute)
-        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn, drop_last=True)
         val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn) if val_set else None
 
         model = FairClassifier(dataset, nr_attr_values=train_set.nr_attr_values()).to(device)
-        model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, epochs,
+        model = train_model(model, train_loader, val_loader, optimizer, lr_f, lr_g, lr_j, lmbda, epochs,
                             checkpoint_name, device, progress_bar, writer)
+        writer.close()
     
+    writer = SummaryWriter(log_dir=os.path.join("runs_eval", checkpoint_name[:-3]))
     test_set = get_test_set(dataset, dataset_root)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=num_workers)
-    area_under_curve, area_between_curves_val, margin_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
+    area_under_curve, area_between_curves_val, margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar)
 
     writer.add_hparams(hparams, {"auc": area_under_curve, "abc": area_between_curves_val}) 
-    writer.add_figure(checkpoint_name[:-3] + '_margin', margin_plot)
-    writer.add_figure(checkpoint_name[:-3] + '_ac', ac_plot)
+    writer.add_figure('margin', margin_plot)
+    writer.add_figure('precision', precision_plot)
+    writer.add_figure('accuracy', ac_plot)
     writer.close()
 
 if __name__ == '__main__':
@@ -304,6 +299,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # General hyperparameters
+    parser.add_argument('--checkpoint', default='', type=str,
+                        help='A filename in the models directory which you want to evaluate. \
+                        If not found will train a model with this name.')
     parser.add_argument('--dataset', default='adult', type=str,
                         help='Name of the dataset to evaluate on.')
     parser.add_argument('--attribute', default="", type=str,
@@ -321,6 +319,8 @@ if __name__ == '__main__':
                         help='Learning rate to use for the group specific models')
     parser.add_argument('--lr_j', default=0.001, type=float,
                         help='Learning rate to use for the joint classifier.')
+    parser.add_argument('--lmbda', default=0.7, type=float,
+                        help='The factor to multiply the regularization loss with, before backpropagating.')
     parser.add_argument('--batch_size', default=32, type=int,
                         help='Minibatch size.')
 
@@ -329,8 +329,6 @@ if __name__ == '__main__':
                         help='Max number of epochs.')
     parser.add_argument('--seed', default=42, type=int,
                         help='Seed to use for reproducing results.')
-    parser.add_argument('--taus', default=np.arange(0, 2.5, step=0.1), type=np.array,
-                        help='Values for the threshold tau.')
 
     # Other arguments
     parser.add_argument('--dataset_root', default="data", type=str,
@@ -340,6 +338,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     kwargs = vars(args)
+
+    print("Training with: ", str(kwargs))
 
     main(**kwargs)
         

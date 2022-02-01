@@ -1,0 +1,5 @@
+--lmbda 0
+--lmbda 0.7
+--lmbda 1.5
+--lmbda 5
+--lmbda 20

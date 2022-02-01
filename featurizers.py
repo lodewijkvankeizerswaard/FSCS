@@ -30,6 +30,8 @@ def get_featurizer(dataset_name: str):
 
     return out_features, model
 
+def rename_attribute(obj, old_name, new_name):
+    obj._modules[new_name] = obj._modules.pop(old_name)
 
 def drop_classification_layer(model):
     return torch.nn.Sequential(*(list(model.children())[:-1]))
@@ -63,6 +65,9 @@ class CivilFeaturizer(nn.Module):
         super(CivilFeaturizer, self).__init__()
         bert = torch.hub.load('huggingface/pytorch-transformers', 'modelForSequenceClassification', 'bert-base-uncased', return_dict=False)    # Download model and configuration from S3 and cache
 
+        for param in bert.parameters():
+            param.requires_grad = False
+
         bert.classifier = nn.Sequential(
             nn.Linear(768, NODE_SIZE),
             nn.SELU()   
@@ -79,7 +84,7 @@ class CheXPertFeaturizer(nn.Module):
         super(CheXPertFeaturizer, self).__init__()
         model = models.densenet121(pretrained=True)
         model = drop_classification_layer(model)
-        self.model = nn.Sequential(model, nn.AdaptiveAvgPool2d((1, 1)))
+        self.model = nn.Sequential(model, nn.AvgPool2d((7, 7)))
 
     def forward(self, x):
         return self.model(x)
@@ -87,6 +92,7 @@ class CheXPertFeaturizer(nn.Module):
 
 if __name__ == "__main__":
     # print(AdultFeaturizer())
-    print(CelebAFeaturizer())
+    # print(CelebAFeaturizer())
     # print(CivilFeaturizer())
-    # print(CheXPertFeaturizer())
+    # CheXPertFeaturizer()
+    pass
