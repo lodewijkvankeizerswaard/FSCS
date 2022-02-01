@@ -10,15 +10,6 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
-from aif360.metrics import BinaryLabelDatasetMetric
-
-from aif360.algorithms.preprocessing.optim_preproc import OptimPreproc
-from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions\
-            import load_preproc_data_adult
-from aif360.algorithms.preprocessing.optim_preproc_helpers.distortion_functions\
-            import get_distortion_adult
-from aif360.algorithms.preprocessing.optim_preproc_helpers.opt_tools import OptTools
-
 
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
@@ -31,29 +22,21 @@ class AdultDataset(data.Dataset):
     # TODO add docstrings
     # TODO improve comments
     def __init__(self, root='data', split="train", attribute='sex'):
-        dataset_orig = load_preproc_data_adult(['race'])
+        datapath = os.path.join(root, "adult")
+        assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
+        # Read data and skip first line of test data
+        self._filename = "adult_aif360.test" if split == "test" else "adult_aif360.data"
+        table = pd.read_csv(os.path.join(datapath, self._filename), index_col=0)
+        
         self.attribute = attribute
 
-        index = 0 if split=="train" else 1
-        dataset_orig = dataset_orig.split([0.7], shuffle=True)[index]
+        self._attributes = table['sex']
 
-        optim_options = {
-            "distortion_fun": get_distortion_adult,
-            "epsilon": 0.05,
-            "clist": [0.99, 1.99, 2.99],
-            "dlist": [.1, 0.05, 0]
-        }
-            
-        OP = OptimPreproc(OptTools, optim_options)
+        self._labels = table["income-per-year"]
+        del table["income-per-year"]
 
-        OP = OP.fit(dataset_orig)
-        dataset_transf_train = OP.transform(dataset_orig, transform_Y=True)
-
-        table = dataset_orig.align_datasets(dataset_transf_train)
-       
-        self._attributes = table['']
-        self._labels = table['']
+        self._table = table
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
@@ -147,6 +130,7 @@ class AdultDataset(data.Dataset):
         t = self._labels.iloc[i]
         d = self._attributes.iloc[i]
         return torch.Tensor(x), torch.Tensor([t]).squeeze(), torch.Tensor([d])
+
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
