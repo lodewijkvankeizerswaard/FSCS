@@ -115,7 +115,7 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
 def area_between_curves(area1: float, area2: float) -> float:
     return abs(area1 - area2)
 
-def accuracy_coverage_plot(accuracies: dict, coverages: dict) -> matplotlib.figure.Figure:
+def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> matplotlib.figure.Figure:
     """
     Plots the accuracy vs. the coverage.
     Args:
@@ -128,34 +128,9 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict) -> matplotlib.figu
         accuracies[group].reverse()
         plt.plot(coverages[group], accuracies[group], label="Group " + str(group))
     plt.xlabel('coverage')
-    plt.ylabel('accuracy')
+    plt.ylabel(ylabel)
     plt.ylim([0.4, 1.01])
     plt.xlim([0.15, 1.0])
     plt.legend(loc="lower left")
     return fig
 
-def precision_coverage_plot(precisions_0: list, precisions_1: list, coverages: list):
-    """
-    Plots the precision vs. the coverage for Group 0 and Group 1.
-    Args:
-        precisions_0: The precision values for Group 0.
-        precisions_1: The precision values for Group 1.
-        coverages: The corresponding coverages for the precisions.
-    Returns:
-        area_between_curves: The area between the two precision-coverage curves.
-    """
-    coverages.reverse()
-    precisions_0.reverse()
-    precisions_1.reverse()
-
-    plt.plot(coverages, precisions_0, label='Group 0')
-    plt.plot(coverages, precisions_1, label='Group 1')
-    plt.legend(loc='upper left')
-    plt.ylim([0.4, 1.01])
-    plt.xlim([0.15, 1.0])
-    plt.xlabel('coverage')
-    plt.ylabel('precision')
-
-    area_0 = auc(coverages, precisions_0)
-    area_1 = auc(coverages, precisions_1)
-    return area_between_curves(area_0, area_1)
