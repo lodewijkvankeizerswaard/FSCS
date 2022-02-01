@@ -1,3 +1,4 @@
+from audioop import bias
 import os
 import torch
 import pandas as pd
@@ -20,54 +21,51 @@ ADULT_CONTINOUS = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-lo
 class AdultDataset(data.Dataset):
     # TODO add docstrings
     # TODO improve comments
-    def __init__(self, root, split="train"):
+    def __init__(self, root='data', split="train", attribute='sex'):
         datapath = os.path.join(root, "adult")
         assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
         # Read data and skip first line of test data
         self._filename = "adult.test" if split == "test" else "adult.data"
-        table = pd.read_csv(os.path.join(datapath, self._filename), \
+        table = pd.read_csv(os.path.join(datapath, self._filename), skipinitialspace=True, \
             names=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',\
                    'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
-                   'hours-per-week', 'native-country', 'salary'], skiprows=int(split=="test"))
-
-        self.attribute = {'column' : 'sex', 'values' : [' Female',' Male']}
+                   'hours-per-week', 'native-country', 'salary'],  skiprows=int(split=="test"))
+        
+        self.attribute = attribute
 
         # Remove dots from labels (in test data)
         table['salary'] = table['salary'].str.replace('.', '', regex=False)
 
         # One-hot encode categorical data
         table = self._onehot_cat(table, ADULT_CATEGORICAL)
-        probs = self._attr_ratio(table)
+
         if split == "test":
             # Add missing country to test data
-            table['native-country_ Holand-Netherlands'] = np.zeros(len(table))
+            table['native-country_Holand-Netherlands'] = np.zeros(len(table))
         else:
-            # Introduce bias in the train data
-            where_d_zero = set(table[ table[self.attribute['column']] == self.attribute['values'][0] ].index)
-            where_y_one = set(table[ table['salary_ >50K'] == 1 ].index)
-            drop_rows = list(where_d_zero & where_y_one)[50:]
-            # drop_rows = list(where_y_one)[50:]
-            self._dropped_rows = drop_rows
+            # # Introduce bias in the train data
+            drop_rows = table[(table['salary_>50K'] == 1) & (table['sex_Female'] == 0)].index[50:]
             table = table.drop(index=drop_rows)
+            
         
         # Normalize continous columns
         table = self._normalize_con(table, ADULT_CONTINOUS)
 
+        self._attributes = table['sex_Female']
+        # # remove attribute from table
+        # del table['sex_Female']
+        # del table['sex_Male']
+
+        self._labels = table["salary_>50K"]
+        del table['salary_<=50K']
+        del table['salary_>50K']
+
+        self._table = table
+
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
-
-        
-
-        self._attributes = table[self.attribute['column']].replace(" Female", 0).replace(" Male", 1)
-        self._labels = table["salary_ >50K"]
-
-        del table['salary_ <=50K']
-        del table['salary_ >50K']
-        del table[self.attribute['column']]
-
-        self._table = table
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
@@ -79,9 +77,8 @@ class AdultDataset(data.Dataset):
         Returns:
             torch.Tensor: a tensor with probabilities for the self.attribute['values'] in the same order.
         """
-        counts = table[self.attribute['column']].value_counts()
-        ratios = torch.Tensor([counts[attr_val] for attr_val in self.attribute['values']])
-        return ratios / sum(ratios)
+        counts = self._attributes.value_counts()
+        return torch.Tensor(counts / sum(counts))
 
     def sample_d(self, size: tuple) -> torch.Tensor:
         return self._attr_dist.sample(size).squeeze()
@@ -97,11 +94,10 @@ class AdultDataset(data.Dataset):
             pd.DataFrame: the table object with the one hot encoded columns appended, and the original column removed
         """
         for column in categories:
-            table = table[table[column] != ' ?']
+            table = table[table[column] != '?']
             onehot_colum = pd.get_dummies(table[column], prefix=column)
             table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
-            if column != self.attribute['column']:
-                table = table.drop(columns=column)
+            table = table.drop(columns=column)
         return table
 
     def _normalize_con(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
@@ -115,11 +111,8 @@ class AdultDataset(data.Dataset):
             pd.Dataframe: the table with the given columns normalized.
         """
         for column in categories:
-            m = table[column].mean()
-            v = table[column].std()**2
-
-            table[column] -= m
-            table[column] /= v
+            table[column] -= table[column].mean()
+            table[column] /= table[column].var()
         return table
 
     def datapoint_shape(self) -> torch.Tensor:
@@ -136,7 +129,7 @@ class AdultDataset(data.Dataset):
         Returns:
             int: the number of attributes
         """
-        return len(self.attribute['values'])
+        return len(self._attributes.unique())
 
     def __len__(self) -> int:
         """Returns the amount of datapoints in this data object."""
@@ -154,10 +147,10 @@ class AdultDataset(data.Dataset):
         value is binary (whether this person earns more than 50K). The d value is a value that indicates the element number in
         the self.attribute['values'] list. This determines the mapping for the group specific model later on.
         """
-        x = [self._table.iloc[i]]
-        t = [self._labels.iloc[i]]
-        d = [self._attributes.iloc[i]]
-        return torch.Tensor(x), torch.Tensor(t).squeeze(), torch.Tensor(d).squeeze()
+        x = self._table.iloc[i]
+        t = self._labels.iloc[i]
+        d = self._attributes.iloc[i]
+        return torch.Tensor(x), torch.Tensor([t]).squeeze(), torch.Tensor([d])
 
 class CheXpertDataset(data.Dataset):
     # TODO add docstring
@@ -420,39 +413,40 @@ def get_test_set(dataset:str, root="data/"):
     return test
 
 if __name__ == "__main__":
-    print("Running all dataset objects!")
-    train_set = AdultDataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # print("Running all dataset objects!")
+    # train_set = AdultDataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
 
-    train_set = CelebADataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # train_set = CelebADataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
 
-    train_set = CheXpertDataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # train_set = CheXpertDataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
 
-    train_set = CivilDataset('data', split="train")
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
-                                               shuffle=True, num_workers=3, drop_last=True)
-    train_set.sample_d((10,10))
-    for i, p in enumerate(tqdm(train_loader)):
-        a = p[0]
-        if i > 10:
-            break
+    # train_set = CivilDataset('data', split="train")
+    # train_loader = torch.utils.data.DataLoader(train_set, batch_size=64,
+    #                                            shuffle=True, num_workers=3, drop_last=True)
+    # train_set.sample_d((10,10))
+    # for i, p in enumerate(tqdm(train_loader)):
+    #     a = p[0]
+    #     if i > 10:
+    #         break
+    AdultDataset()
