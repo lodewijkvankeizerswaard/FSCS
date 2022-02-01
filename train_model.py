@@ -102,7 +102,7 @@ def train_model(model: nn.Module, train_loader: torch.utils.data.DataLoader, val
         nr_batches = len(train_loader)
 
         # Group specific training
-        if lmbda != 0:
+        if lmbda:
             group_correct, group_total = 0, 0
             group_loss = 0
             for i, (x, t, d) in enumerate(tqdm(train_loader, position=1, desc="group", leave=False, disable=progress_bar)):
