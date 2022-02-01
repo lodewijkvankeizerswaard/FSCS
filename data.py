@@ -10,6 +10,15 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
+from aif360.metrics import BinaryLabelDatasetMetric
+
+from aif360.algorithms.preprocessing.optim_preproc import OptimPreproc
+from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions\
+            import load_preproc_data_adult
+from aif360.algorithms.preprocessing.optim_preproc_helpers.distortion_functions\
+            import get_distortion_adult
+from aif360.algorithms.preprocessing.optim_preproc_helpers.opt_tools import OptTools
+
 
 # TODO add Civil Comments dataset object
 # TODO add CelebA dataset object
@@ -22,46 +31,29 @@ class AdultDataset(data.Dataset):
     # TODO add docstrings
     # TODO improve comments
     def __init__(self, root='data', split="train", attribute='sex'):
-        datapath = os.path.join(root, "adult")
-        assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
+        dataset_orig = load_preproc_data_adult(['race'])
 
-        # Read data and skip first line of test data
-        self._filename = "adult.test" if split == "test" else "adult.data"
-        table = pd.read_csv(os.path.join(datapath, self._filename), skipinitialspace=True, \
-            names=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',\
-                   'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',\
-                   'hours-per-week', 'native-country', 'salary'],  skiprows=int(split=="test"))
-        
         self.attribute = attribute
 
-        # Remove dots from labels (in test data)
-        table['salary'] = table['salary'].str.replace('.', '', regex=False)
+        index = 0 if split=="train" else 1
+        dataset_orig = dataset_orig.split([0.7], shuffle=True)[index]
 
-        # One-hot encode categorical data
-        table = self._onehot_cat(table, ADULT_CATEGORICAL)
-
-        if split == "test":
-            # Add missing country to test data
-            table['native-country_Holand-Netherlands'] = np.zeros(len(table))
-        else:
-            # # Introduce bias in the train data
-            drop_rows = table[(table['salary_>50K'] == 1) & (table['sex_Male'] == 0)].index[50:]
-            table = table.drop(index=drop_rows)
+        optim_options = {
+            "distortion_fun": get_distortion_adult,
+            "epsilon": 0.05,
+            "clist": [0.99, 1.99, 2.99],
+            "dlist": [.1, 0.05, 0]
+        }
             
-        
-        # Normalize continous columns
-        table = self._normalize_con(table, ADULT_CONTINOUS)
+        OP = OptimPreproc(OptTools, optim_options)
 
-        self._attributes = table['sex_Male']
-        # # remove attribute from table
-        # del table['sex_Female']
-        # del table['sex_Male']
+        OP = OP.fit(dataset_orig)
+        dataset_transf_train = OP.transform(dataset_orig, transform_Y=True)
 
-        self._labels = table["salary_>50K"]
-        del table['salary_<=50K']
-        del table['salary_>50K']
-
-        self._table = table
+        table = dataset_orig.align_datasets(dataset_transf_train)
+       
+        self._attributes = table['']
+        self._labels = table['']
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
