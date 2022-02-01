@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --time=12:00:00
 #SBATCH --mem=32000M
-#SBATCH --array=1-5%1
+#SBATCH --array=1-2%2
 #SBATCH --output=slurm_array_CHEXPERT_%A_%a.out
 
 module purge

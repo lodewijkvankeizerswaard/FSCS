@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
-rc('text', usetex=True)
+# rc('text', usetex=True)
 
 def confidence_score(x: torch.Tensor) -> torch.Tensor:
     return 0.5 * np.log(x / (1 - x))
@@ -108,7 +108,7 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     fig, ax = plt.subplots(1, 1, tight_layout=True)
     for g, m in margins.items():
         ax.hist(m.numpy().flatten(), bins='auto', density=True, alpha=0.5, label='Group ' + str(g))
-    ax.set_xlabel(r'$\kappa (x)$')
+    ax.set_xlabel('k (x)')
     ax.legend(loc="upper left")
     return fig
 
