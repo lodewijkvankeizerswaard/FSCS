@@ -201,7 +201,7 @@ class CheXpertDataset(data.Dataset):
         x = self._transfrom(img).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)])
         d = torch.Tensor([int(df.iloc[i][self.attribute['column']] == 1)])
-        return x, t.squeeze(), d
+        return x, t.squeeze(), d.squeeze()
 
 class CelebADataset(data.Dataset):
     def __init__(self, root, split="train"):
@@ -229,7 +229,10 @@ class CelebADataset(data.Dataset):
         probs = self._attr_ratio(self.anno_table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
 
-        self.transform = transforms.ToTensor()
+        self.transform = transforms.Compose([
+                               transforms.Resize((224,224)),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
@@ -278,12 +281,11 @@ class CelebADataset(data.Dataset):
         img = Image.open(os.path.join(self._datapath, "img_align_celeba", filename)) 
 
         # Resize the image to the dimension required by the Resnet50
-        resized_image = img.resize((224, 224))
 
-        x = self.transform(resized_image)
+        x = self.transform(img)
         t = torch.Tensor([int(df.iloc[i]['Blond_Hair'] == 1)])
         d = torch.Tensor([int(df.iloc[i]['Male'] == 1)])
-        return x, t, d
+        return x, t.squeeze(), d.squeeze()
 
 class CivilDataset(data.Dataset):
     def __init__(self, root, split="train"):

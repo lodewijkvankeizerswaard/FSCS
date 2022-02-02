@@ -82,7 +82,7 @@ class FairClassifier(nn.Module):
         joint_pred = self.joint_classifier(features)
         joint_pred = torch.sigmoid(joint_pred)
 
-        return joint_pred.squeeze(), group_spe_pred, group_agn_pred
+        return joint_pred.squeeze(), group_spe_pred.squeeze(), group_agn_pred.squeeze()
 
     def device(self):
         return next(self.parameters()).device
