@@ -65,7 +65,7 @@ class FairClassifier(nn.Module):
 
             group_spe_pred = torch.zeros(features.shape[0], device=self.device())
             group_spe_pred[group_spe_indices] = torch.cat([self.group_specific_models[i](group_split) for i, group_split in enumerate(group_spe_splits)])
-            group_spe_pred = torch.sigmoid(group_spe_pred)
+            group_spe_pred = torch.sigmoid(group_spe_pred).squeeze()
         else:
             group_spe_pred = None
 
@@ -75,14 +75,14 @@ class FairClassifier(nn.Module):
 
             group_agn_pred = torch.zeros(features.shape[0], device=self.device())
             group_agn_pred[group_agn_indices] = torch.cat([self.group_specific_models[i](group_split) for i, group_split in enumerate(group_agn_splits)])
-            group_agn_pred = torch.sigmoid(group_agn_pred)
+            group_agn_pred = torch.sigmoid(group_agn_pred).squeeze()
         else:
             group_agn_pred = None
 
         joint_pred = self.joint_classifier(features)
-        joint_pred = torch.sigmoid(joint_pred)
+        joint_pred = torch.sigmoid(joint_pred).squeeze()
 
-        return joint_pred.squeeze(), group_spe_pred.squeeze(), group_agn_pred.squeeze()
+        return joint_pred, group_spe_pred, group_agn_pred
 
     def device(self):
         return next(self.parameters()).device
