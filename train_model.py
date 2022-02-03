@@ -254,8 +254,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
 
     margin_plot = plot_margin_group(M_group)
-    print(P_A_group == A_group)
-    print(P_C_group == C_group)
+
     precision_plot = accuracy_coverage_plot(P_A_group, P_C_group, 'precision')
     ac_plot = accuracy_coverage_plot(A_group, C_group, 'accuracy')
 
