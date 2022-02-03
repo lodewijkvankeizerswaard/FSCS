@@ -68,7 +68,6 @@ def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attr
         M_group: The margin values of the samples per group.
         A_group: The accuracies for different values of tau per group.
         C_group: The corresponding coverages for different values of tau per group.
-        P_M_group: The margin values of the samples 
         P_A_group: The precision values for different values of tau per group.
         P_C_group: The corresponding coverages for different values of tau per group.
         """
