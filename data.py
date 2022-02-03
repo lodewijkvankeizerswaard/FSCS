@@ -1,16 +1,10 @@
-from audioop import bias
 import os
 import torch
 import pandas as pd
-import numpy as np
-from numpy import isneginf
 import torch.utils.data as data
-import zipfile
-# import gdown
+
 from PIL import Image
 from torchvision import transforms
-from tqdm import tqdm
-
 
 # Editing these global variables has a very high chance of breaking the data
 ADULT_CONTINOUS = ['age', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
@@ -20,7 +14,6 @@ class AdultDataset(data.Dataset):
     # TODO improve comments
     def __init__(self, root='data', split="train", attribute='sex'):
         datapath = os.path.join(root, "adult")
-        assert os.path.exists(datapath), "Adult dataset not found! Did you run `get_data.sh`?"
 
         # Read data and skip first line of test data
         self._filename = "adult.test" if split == "test" else "adult.data"
