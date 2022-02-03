@@ -97,7 +97,7 @@ def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attr
 
     # area_under_curve_group_precision = [auc(P_C_group[group], P_A_group[group]) for group in P_M_group.keys()]
     # area_between_curves_val = area_between_curves(area_under_curve_group_precision[0], area_under_curve_group_precision[1])
-    area_between_curves = abc(P_A_group)
+    area_between_curves = abc(P_A_group, P_C_group)
     
     return area_under_curve, area_between_curves, M_group, A_group, C_group, P_A_group, P_C_group
 
@@ -119,7 +119,7 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
 # def area_between_curves(area1: float, area2: float) -> float:
 #     return abs(area1 - area2)
 
-def abc(precisions: dict) -> float:
+def abc(precisions: dict, coverages:dict) -> float:
     """
     Calculates the area between two curves.
     Args:
@@ -127,6 +127,9 @@ def abc(precisions: dict) -> float:
     Returns:
         area: The area between the two curves.
     """
+    for group in coverages:
+        coverages[group] = round(coverages[group], 3)
+    print(coverages)
     n = len(precisions[0])
     xrange = np.arange(0, n, step=1/n)
     area = 0
