@@ -12,6 +12,7 @@ from model import FairClassifier
 from evaluation import *
 from torch.utils.tensorboard import SummaryWriter
 
+## uncomment for civil
 # tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
 torch.set_printoptions(precision=20) 
 
@@ -207,7 +208,7 @@ def num_correct_predictions(predictions: torch.Tensor, targets: torch.Tensor) ->
     correct = (pred == targets).sum()
     return correct.item()
 
-def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, device: torch.device, seed: int, progress_bar: bool) -> float:
+def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, device: torch.device, progress_bar: bool = True) -> float:
     """
     Tests a trained model on the test set.
 
@@ -220,8 +221,6 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     Returns:
         test_results: The average accuracy on the test set (independent of the attribute).
     """
-
-    set_seed(seed)
 
     # Get the model predictions
     predictions = []
@@ -296,7 +295,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     if os.path.exists(checkpoint_path):
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
-        model = FairClassifier(dataset, nr_attr_values=10).to(device)
+        model = FairClassifier(dataset).to(device)
         model.load_state_dict(torch.load(checkpoint_path), strict=False)
         model.to(device)
     else:
