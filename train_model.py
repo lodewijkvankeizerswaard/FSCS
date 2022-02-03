@@ -326,7 +326,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # General hyperparameters
-    parser.add_argument('--checkpoint', default='adult__-3-3-3_sgd_42.pt', type=str,
+    parser.add_argument('--checkpoint', default='', type=str,
                         help='A filename in the models directory which you want to evaluate. \
                         If not found will train a model with this name.')
     parser.add_argument('--dataset', default='adult', type=str,
