@@ -1,3 +1,12 @@
+"""
+Pre-processing file for the Adult Dataset, uses the aif360 python package
+
+Referenced from:
+AI Fairness 360: An Extensible Toolkit for Detecting, Understanding, and Mitigating Unwanted Algorithmic Bias (2018)
+Rachel K. E. Bellamy and Kuntal Dey and Michael Hind and Samuel C. Hoffman and Stephanie Houde and Kalapriya Kannan 
+and Pranay Lohia and Jacquelyn Martino and Sameep Mehta and Aleksandra Mojsilovic and Seema Nagar and Karthikeyan Natesan Ramamurthy 
+and John Richards and Diptikalyan Saha and Prasanna Sattigeri and Moninder Singh and Kush R. Varshney and Yunfeng Zhang
+"""
 from aif360.datasets import AdultDataset
 
 ds_orig = AdultDataset()
@@ -28,6 +37,7 @@ unpriv = [{'sex': 0}] # Female
 # Create the metric object
 metric_otr = BinaryLabelDatasetMetric( ds_orig_tr,
 unprivileged_groups=unpriv, privileged_groups=priv)
+
 # Load and create explainers
 from aif360.explainers import MetricTextExplainer, MetricJSONExplainer
 text_exp_otr = MetricTextExplainer(metric_otr)
@@ -69,6 +79,7 @@ text_exp_tte = MetricTextExplainer(metric_tte)
 print(text_exp_ote.statistical_parity_difference())
 print(text_exp_tte.statistical_parity_difference())
 
+# Export files
 test = ds_orig_te.convert_to_dataframe()[0]
 test.to_csv('adult_aif360.test')
 
