@@ -18,27 +18,29 @@ class AdultDataset(data.Dataset):
         # Read data and skip first line of test data
         self._filename = "adult.test" if split == "test" else "adult.data"
         table = pd.read_csv(os.path.join(datapath, self._filename), index_col=0)
+
+        if split=='train':
+            table = self.add_bias(table)
         
         self.attribute = attribute
         self._attributes = table[attribute]
 
-        if split=='train':
-            drop_rows = table[(table["income-per-year"] == 1) & (table['sex'] == 0)].index[50:]
-            table = table.drop(index=drop_rows)
-
         self._labels = table["income-per-year"]
         del table["income-per-year"]
         
+        table = self._normalize_con(table, ADULT_CONTINOUS)
+        # table = self._normalize_min_max(table, ADULT_CONTINOUS)
         self._table = table
 
-        self._table = self._normalize_con(self._table, ADULT_CONTINOUS)
-        # self._table = self._normalize_min_max(self._table, ADULT_CONTINOUS)
-
         # Find the ratio for the attribute to be able to sample from this distribution
-        probs = self._attr_ratio(table)
+        probs = self._attr_ratio()
         self._attr_dist = torch.distributions.categorical.Categorical(probs=probs)
 
-    def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
+    def add_bias(self, table):
+        drop_rows = table[(table["income-per-year"] == 1) & (table['sex'] == 0)].index[50:]
+        return table.drop(index=drop_rows)
+
+    def _attr_ratio(self) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
         sample from this distribution. 
 
