@@ -150,5 +150,6 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> ma
     plt.ylim([0.4, 1.01])
     plt.xlim([0.15, 1.0])
     plt.legend(loc="lower left")
+    plt.title("Group-specific "+ ylabel+"-coverage curves.")
     return fig
 
