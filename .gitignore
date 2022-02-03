@@ -6,6 +6,7 @@
 
 # Large files
 data/
+!data/adult
 runs/
 runs_eval/
 *.pt

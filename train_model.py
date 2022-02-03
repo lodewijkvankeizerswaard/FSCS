@@ -278,8 +278,6 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
     collate_fn = bert_collate if dataset == "civil" else None
     set_seed(seed)
 
-    # device = torch.device("cpu")
-
     print("Training on ", device)
 
     # Check if the given configuration has been trained before
@@ -338,7 +336,7 @@ if __name__ == '__main__':
                         help='The amount of threads for the data loader object.')
     
     # Optimizer hyperparameters
-    parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"],
+    parser.add_argument('--optimizer', default="adam", type=str, choices=["sgd", "adam"],
                         help='The optimizer to use. Available options are: sgd, adam')
     parser.add_argument('--lr_f', default=0.001, type=float,
                         help='Learning rate to use for the featurizer')
