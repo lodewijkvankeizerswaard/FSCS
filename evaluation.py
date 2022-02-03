@@ -31,7 +31,7 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     pred[pred<0.5] = 1 - pred[pred<0.5]
     margin = correct * confidence_score(pred)
     # margin[margin > 20] = 20
-    # margin[margin < 20] = 20
+    # margin[margin < - 20] = -20
     return margin
 
 def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
@@ -95,8 +95,6 @@ def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attr
     P_A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in P_M_group.items()}
     P_C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in P_M_group.items()}
 
-    # area_under_curve_group_precision = [auc(P_C_group[group], P_A_group[group]) for group in P_M_group.keys()]
-    # area_between_curves_val = area_between_curves(area_under_curve_group_precision[0], area_under_curve_group_precision[1])
     area_between_curves = abc(P_A_group, P_C_group)
     
     return area_under_curve, area_between_curves, M_group, A_group, C_group, P_A_group, P_C_group
@@ -116,9 +114,6 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     ax.legend(loc="upper left")
     return fig
 
-# def area_between_curves(area1: float, area2: float) -> float:
-#     return abs(area1 - area2)
-
 def abc(precisions: dict, coverages:dict) -> float:
     """
     Calculates the area between two curves.
@@ -128,14 +123,22 @@ def abc(precisions: dict, coverages:dict) -> float:
         area: The area between the two curves.
     """
     for group in coverages:
-        coverages[group] = round(coverages[group], 3)
-    print(coverages)
-    n = len(precisions[0])
-    xrange = np.arange(0, n, step=1/n)
+        coverages[group] = [round(i,3) for i in coverages[group]]
+    
+    final_coverages, final_precisions0, final_precisions1 = [], [], []
+    for value in coverages[0]:
+        if value in coverages[1] and value not in final_coverages:
+            final_coverages.append(value)
+            index_0 = coverages[0].index(value)
+            index_1 = coverages[1].index(value)
+            final_precisions0.append(precisions[0][index_0])
+            final_precisions1.append(precisions[1][index_1])
+   
     area = 0
-    for i in range(2, n):
-        area += abs(auc(precisions[0][i-2:i], xrange[i-2:i]) - auc(precisions[1][i-2:i], xrange[i-2:i]))
-    return area
+    for x, y in zip(final_precisions0, final_precisions1):
+        area += abs(x - y)
+    return area/len(final_precisions0)
+
 
 def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> matplotlib.figure.Figure:
     """
