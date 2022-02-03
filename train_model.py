@@ -251,7 +251,7 @@ def test_model(model: nn.Module, test_loader: torch.utils.data.DataLoader, devic
     test_acc = num_correct_predictions(predictions, targets) / len(predictions)
 
     # Compute overal margin and AUC statistics
-    area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
+    area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_A_group, P_C_group = evalutaion_statistics(predictions, targets, attributes)
 
     margin_plot = plot_margin_group(M_group)
     precision_plot = accuracy_coverage_plot(P_A_group, P_C_group, 'precision')
@@ -296,7 +296,7 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
         # Create dummy model and load the trained model from disk
         print("Found model", checkpoint_path)
         model = FairClassifier(dataset, nr_attr_values=10).to(device)
-        model.load_state_dict(torch.load(checkpoint_path), strict=False)
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device), strict=False)
         model.to(device)
     else:
         # Load the dataset with the given parameters, initialize the model and start training
@@ -326,7 +326,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # General hyperparameters
-    parser.add_argument('--checkpoint', default='', type=str,
+    parser.add_argument('--checkpoint', default='adult__-3-3-3_sgd_42.pt', type=str,
                         help='A filename in the models directory which you want to evaluate. \
                         If not found will train a model with this name.')
     parser.add_argument('--dataset', default='adult', type=str,

@@ -98,7 +98,7 @@ def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attr
     # area_between_curves_val = area_between_curves(area_under_curve_group_precision[0], area_under_curve_group_precision[1])
     area_between_curves = abc(P_A_group)
     
-    return area_under_curve, area_between_curves, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group
+    return area_under_curve, area_between_curves, M_group, A_group, C_group, P_A_group, P_C_group
 
 def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     """
