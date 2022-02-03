@@ -9,7 +9,7 @@ data/
 !data/adult
 runs/
 runs_eval/
-*.pt
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -140,3 +140,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+runs.sh
+clear_runs.sh
