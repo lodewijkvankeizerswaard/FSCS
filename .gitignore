@@ -9,7 +9,7 @@ data/
 !data/adult
 runs/
 runs_eval/
-*.pt
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
