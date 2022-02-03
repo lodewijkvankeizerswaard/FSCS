@@ -35,7 +35,7 @@ data
 ```
 
 ### Adult
-The Adult dataset can be downloaded for free, without any registration using the [Adult dataset link](https://archive.ics.uci.edu/ml/datasets/adult), or by running the `data/get_adult.sh` (Linux and Mac only).
+The Adult dataset can be downloaded for free, without any registration using the [Adult dataset link](https://archive.ics.uci.edu/ml/datasets/adult), or by running the `data/get_adult.sh` (requires wget).
 
 ### CelebA
 The [CelebA dataset](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) is available for download through [Google Drive via their website](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html). To be able to download files from Google Drive gdown is imported in the environment. 
