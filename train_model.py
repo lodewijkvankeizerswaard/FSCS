@@ -282,10 +282,11 @@ def main(checkpoint: str, dataset: str, attribute: str, num_workers: int, optimi
 
     # Check if the given configuration has been trained before
     if checkpoint:
-        checkpoint_name = checkpoint
+        checkpoint_name = os.path.split(checkpoint)[-1]
+        checkpoint_path = checkpoint
     else:
         checkpoint_name = name_model(dataset, attribute, lr_f, lr_g, lr_j, lmbda, optimizer, seed) + '.pt'
-    checkpoint_path = os.path.join("runs", checkpoint_name)
+        checkpoint_path = os.path.join("runs", checkpoint_name)
 
     writer = SummaryWriter(log_dir=os.path.join("runs", checkpoint_name[:-3]))
     hparams = {"data": dataset, "attr": attribute, "opt": optimizer, "lr_f": lr_f, "lr_g": lr_g, "lr_j": lr_j, "seed": seed, "lambda": lmbda}
@@ -324,7 +325,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # General hyperparameters
-    parser.add_argument('--checkpoint', default='adult__-3-3-3_sgd_42.pt', type=str,
+    parser.add_argument('--checkpoint', default='', type=str,
                         help='A filename in the models directory which you want to evaluate. \
                         If not found will train a model with this name.')
     parser.add_argument('--dataset', default='adult', type=str,
@@ -358,7 +359,7 @@ if __name__ == '__main__':
     # Other arguments
     parser.add_argument('--dataset_root', default="data", type=str,
                         help="the root of the data folders.")
-    parser.add_argument('--progress_bar', action="store_false",
+    parser.add_argument('--progress_bar', action="store_true",
                         help="Turn progress bar on.")
 
     args = parser.parse_args()
