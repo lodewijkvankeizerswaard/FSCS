@@ -152,7 +152,10 @@ class CheXpertDataset(data.Dataset):
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
 
-        self._transfrom = transforms.ToTensor()
+        self._transform = transforms.Compose([
+                               transforms.Resize((224,224)),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5), (0.5))])
 
     def _attr_ratio(self, table: pd.DataFrame) -> torch.Tensor:
         """Finds the ratio in which the attribute occurs in the data set, such that we can later
@@ -196,9 +199,8 @@ class CheXpertDataset(data.Dataset):
 
         # Get the image
         filename = df.iloc[i]['Path']
-        img = Image.open(os.path.join(self._datapath, filename)).resize((224,224))
-
-        x = self._transfrom(img).repeat(3,1,1)
+        img = Image.open(os.path.join(self._datapath, filename))
+        x = self._transform(img).repeat(3,1,1)
         t = torch.Tensor([int(df.iloc[i]['Pleural Effusion'] == 1)])
         d = torch.Tensor([int(df.iloc[i][self.attribute['column']] == 1)])
         return x, t.squeeze(), d.squeeze()
