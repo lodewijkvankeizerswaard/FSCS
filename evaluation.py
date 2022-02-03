@@ -30,7 +30,8 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     correct = (torch.round(pred) == target).type(torch.int) * 2 - 1
     pred[pred<0.5] = 1 - pred[pred<0.5]
     margin = correct * confidence_score(pred)
-    margin[margin == float("Inf")] = 20
+    # margin[margin > 20] = 20
+    # margin[margin < 20] = 20
     return margin
 
 def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
