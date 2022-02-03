@@ -25,17 +25,21 @@ class AdultDataset(data.Dataset):
         # Read data and skip first line of test data
         self._filename = "adult_aif360.test" if split == "test" else "adult_aif360.data"
         table = pd.read_csv(os.path.join(datapath, self._filename), index_col=0)
-        print(len(table))
         
         self.attribute = attribute
+        self._attributes = table[attribute]
 
-        self._attributes = table['sex']
+        if split=='train':
+            drop_rows = table[(table["income-per-year"] == 1) & (table['sex'] == 0)].index[50:]
+            table = table.drop(index=drop_rows)
 
         self._labels = table["income-per-year"]
         del table["income-per-year"]
-
+        
         self._table = table
-        # self._table = self._normalize_con(self._table, ADULT_CONTINOUS)
+
+        self._table = self._normalize_con(self._table, ADULT_CONTINOUS)
+        # self._table = self._normalize_min_max(self._table, ADULT_CONTINOUS)
 
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(table)
@@ -68,7 +72,6 @@ class AdultDataset(data.Dataset):
             pd.DataFrame: the table object with the one hot encoded columns appended, and the original column removed
         """
         for column in categories:
-            table = table[table[column] != '?']
             onehot_colum = pd.get_dummies(table[column], prefix=column)
             table = pd.merge(left=table, right=onehot_colum, left_index=True, right_index=True)
             table = table.drop(columns=column)
@@ -85,12 +88,25 @@ class AdultDataset(data.Dataset):
             pd.Dataframe: the table with the given columns normalized.
         """
         for column in categories:
+            table[column] -= table[column].mean()
+            table[column] /= table[column].var()
+        return table
+
+    def _normalize_min_max(self, table: pd.DataFrame, categories: list) -> pd.DataFrame:
+        """Normalizes the columns of a table to have zero mean and unit variance.
+
+        Args:
+            table (pd.Dataframe): the table containing the data.
+            categories (list): a list of column names present in the table that need to be normalized.
+
+        Returns:
+            pd.Dataframe: the table with the given columns normalized.
+        """
+        for column in categories:
             min_val = table[column].min()
             max_val = table[column].max()
 
             table[column] = (table[column] - min_val) / (max_val - min_val)
-            # table[column] -= table[column].mean()
-            # table[column] /= table[column].var()
         return table
 
     def datapoint_shape(self) -> torch.Tensor:
