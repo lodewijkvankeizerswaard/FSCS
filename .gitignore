@@ -140,3 +140,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+runs.sh
+clear_runs.sh
