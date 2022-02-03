@@ -94,10 +94,11 @@ def evalutaion_statistics(predictions: torch.Tensor, targets: torch.Tensor, attr
     P_A_group = {group_key: [CDF_correct(group_margin, tau) / CDF_covered(group_margin, tau) if CDF_covered(group_margin, tau) > 0 else 1 for tau in taus] for group_key, group_margin in P_M_group.items()}
     P_C_group = {group_key: [CDF_covered(group_margin, tau) for tau in taus] for group_key, group_margin in P_M_group.items()}
 
-    area_under_curve_group_precision = [auc(P_C_group[group], P_A_group[group]) for group in P_M_group.keys()]
-    area_between_curves_val = area_between_curves(area_under_curve_group_precision[0], area_under_curve_group_precision[1])
-
-    return area_under_curve, area_between_curves_val, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group
+    # area_under_curve_group_precision = [auc(P_C_group[group], P_A_group[group]) for group in P_M_group.keys()]
+    # area_between_curves_val = area_between_curves(area_under_curve_group_precision[0], area_under_curve_group_precision[1])
+    area_between_curves = abc(P_A_group)
+    
+    return area_under_curve, area_between_curves, M_group, A_group, C_group, P_M_group, P_A_group, P_C_group
 
 def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     """
@@ -114,8 +115,23 @@ def plot_margin_group(margins: dict) -> matplotlib.figure.Figure:
     ax.legend(loc="upper left")
     return fig
 
-def area_between_curves(area1: float, area2: float) -> float:
-    return abs(area1 - area2)
+# def area_between_curves(area1: float, area2: float) -> float:
+#     return abs(area1 - area2)
+
+def abc(precisions: dict) -> float:
+    """
+    Calculates the area between two curves.
+    Args:
+        precisions: The precision values for the two curves.
+    Returns:
+        area: The area between the two curves.
+    """
+    n = len(precisions[0])
+    xrange = np.arange(0, n, step=1/n)
+    area = 0
+    for i in range(2, n):
+        area += abs(auc(precisions[0][i-2:i], xrange[i-2:i]) - auc(precisions[1][i-2:i], xrange[i-2:i]))
+    return area
 
 def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> matplotlib.figure.Figure:
     """
