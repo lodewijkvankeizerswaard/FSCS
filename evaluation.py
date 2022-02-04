@@ -157,3 +157,46 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> ma
     plt.title("Group-specific "+ ylabel+"-coverage curves.")
     return fig
 
+def evaluate(dataset, lmbda, verbose=False):
+    """
+    Runs tests for a dataset and given lambda for all present seeds
+
+    :params:
+    lmbda: specify lambda value used during training (directory has to be present)
+    verbose: specify if results, including images, should be outputted per seed
+    """
+
+    acc_scores, auc_scores, abc_scores = [], [], []
+    path = os.path.join(*['models', dataset, str(lmbda)])
+    for model_name in os.listdir(path):
+        seed = int(os.path.splitext(model_name)[0])
+        model = FairClassifier(dataset).to(device)
+        model.load_state_dict(torch.load(os.path.join(path, model_name), map_location=device), strict=False)
+
+        test_set = get_test_set(dataset)
+        test_loader = torch.utils.data.DataLoader(test_set, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
+
+        test_acc_score, area_under_curve, area_between_curves_val, \
+        margin_plot, precision_plot, ac_plot = test_model(model, test_loader, device, seed, progress_bar=True)
+
+        acc_scores.append(test_acc_score)
+        auc_scores.append(area_under_curve)
+        abc_scores.append(area_between_curves_val)
+
+        if verbose:
+            plt.show()
+            print("Seed:", seed)
+            print("Test Accuracy:", test_acc_score)
+            print("Area Under Curve:", area_under_curve)
+            print("Area Between Curve:", area_between_curves_val)
+
+    acc_scores = np.array(acc_scores)
+    auc_scores = np.array(auc_scores)
+    abc_scores = np.array(abc_scores)
+
+    if verbose:
+        print("-------------------------------")
+    print("Mean Test Accuracy:", acc_scores.mean(), "std:", acc_scores.std())
+    print("Mean Area Under Curve:", auc_scores.mean(), "std:", auc_scores.std())
+    print("Mean Area Between Curve:", abc_scores.mean(), "std:", abc_scores.std())
+
