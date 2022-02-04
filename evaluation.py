@@ -4,6 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
+import os 
+from train_model import test_model, set_seed, get_test_set
+from model import FairClassifier
+
 def confidence_score(x: torch.Tensor) -> torch.Tensor:
     return 0.5 * np.log(x / (1 - x))
 
@@ -157,7 +161,7 @@ def accuracy_coverage_plot(accuracies: dict, coverages: dict, ylabel: str) -> ma
     plt.title("Group-specific "+ ylabel+"-coverage curves.")
     return fig
 
-def evaluate(dataset, lmbda, verbose=False):
+def evaluate(dataset, lmbda, checkpoint="", verbose=False):
     """
     Runs tests for a dataset and given lambda for all present seeds
 
@@ -165,9 +169,13 @@ def evaluate(dataset, lmbda, verbose=False):
     lmbda: specify lambda value used during training (directory has to be present)
     verbose: specify if results, including images, should be outputted per seed
     """
-
+    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     acc_scores, auc_scores, abc_scores = [], [], []
-    path = os.path.join(*['models', dataset, str(lmbda)])
+    if checkpoint != "":
+        path=checkpoint
+    else:
+        path = os.path.join(*['models', dataset, str(lmbda)])
+
     for model_name in os.listdir(path):
         seed = int(os.path.splitext(model_name)[0])
         model = FairClassifier(dataset).to(device)
