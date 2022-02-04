@@ -13,7 +13,6 @@ from evaluation import *
 from torch.utils.tensorboard import SummaryWriter
 
 # tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased', return_dict=False)    # Download vocabulary from S3 and cache.
-
 def bert_collate(data_batch):
     x, t, d = [], [], []
     for modality, target, attribute in data_batch:
