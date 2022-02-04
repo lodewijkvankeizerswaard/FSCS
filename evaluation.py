@@ -1,11 +1,8 @@
 import matplotlib
-from matplotlib import rc
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-
-# rc('text', usetex=True)
 
 def confidence_score(x: torch.Tensor) -> torch.Tensor:
     return 0.5 * np.log(x / (1 - x))
@@ -30,8 +27,9 @@ def margin(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     correct = (torch.round(pred) == target).type(torch.int) * 2 - 1
     pred[pred<0.5] = 1 - pred[pred<0.5]
     margin = correct * confidence_score(pred)
-    # margin[margin > 20] = 20
-    # margin[margin < - 20] = -20
+    # Cap large values to 20
+    margin[margin > 20] = 20
+    margin[margin < - 20] = -20
     return margin
 
 def margin_group(predictictions: torch.Tensor, targets: torch.Tensor, attributes: torch.Tensor) -> dict:
