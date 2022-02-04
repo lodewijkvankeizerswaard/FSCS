@@ -158,7 +158,7 @@ class CheXpertDataset(data.Dataset):
         # Remove rows with -1's for the attribute value and target value (to make flags binary)
         self._table = self._table[ self._table[self.attribute['column']].isin(self.attribute['values']) == True ]
         self._table = self._table[ self._table[self.target['column']].isin(self.target['values']) == True ]
-        print(self._table['Pleural Effusion'].unique())
+        
         # Find the ratio for the attribute to be able to sample from this distribution
         probs = self._attr_ratio(self._table)
         self._attr_dist = torch.distributions.Categorical(probs=probs)
