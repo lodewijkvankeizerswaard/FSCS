@@ -57,3 +57,9 @@ The images of the Celeba dataset are resized to 224 by 224 pixels by using scali
 
 ### Civil Comments
 The Civil Comments dataset contained a lot of rows where the attribute "Christian" was not defined. Because this was the sensitive attribute we had to use all rows where this was the case were removed. The toxicity value was a continous value between 0 and 1. Therefor a threshold was set at 0.5, all values lower than this were seen as non-toxic and all values higher were seen as toxic. 
+
+
+## Running the code
+The `train_model.py` can be used to train a model with the specified parameters e.g. `python train_model.py --dataset adult --lmbda 0.7 --optimizer adam --seed 42 --progress_bar`. Using the default settings will train a regularized model for the specified dataset for 20 epochs (this should be adjusted for the specific dataset). Please see our paper for more details on hyperparameter tuning.
+
+A trained model can be copied to the models directory, and then evaluated using the evaluate function in `results.ipynb`.
