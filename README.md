@@ -1,6 +1,6 @@
 # FSCS
 
-This is the repository for our entry in the (ML Reproducibility Challenge 2021 Fall Edition)[https://paperswithcode.com/rc2021], where we reproduce the paper "Fair Selective Classification via Sufficiency". 
+This is the repository for [our entry](https://openreview.net/forum?id=HE3ei3f7hRt) in the [ML Reproducibility Challenge 2021 Fall Edition](https://paperswithcode.com/rc2021), where we reproduce the paper "Fair Selective Classification via Sufficiency". 
 
 ## Downloading Datasets
 The evalutation is done on four different datasets: [Adult](https://archive.ics.uci.edu/ml/datasets/adult), [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html), [Civil Comments](https://www.kaggle.com/c/jigsaw-unintended-bias-in-toxicity-classification/data) and [CheXpert](https://stanfordmlgroup.github.io/competitions/chexpert/). This section describes how to obtain each of the datasets. If you just want to test the model in general, the Adult dataset is most easy to obtain and train on. The final data directory should look something like this:
