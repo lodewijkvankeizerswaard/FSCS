@@ -1,4 +1,4 @@
-# FSCS
+# Fair Selective Classification via Sufficiency
 
 This is the repository for [our entry](https://openreview.net/forum?id=HE3ei3f7hRt) in the [ML Reproducibility Challenge 2021 Fall Edition](https://paperswithcode.com/rc2021), where we reproduce the paper "Fair Selective Classification via Sufficiency". 
 
